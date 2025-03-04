@@ -16,9 +16,9 @@ gcc -O2 src/main.c -o cmatrix.exe
 ### Using the program
 - Format
 ```bash
-cmatrix.exe -delay (delay in ms) -textcolor (r,g,b)
+cmatrix.exe -delay (delay in ms) -textcolor (r,g,b) -stopmidway (true / false) -mintrail (number) -maxtrail (number)
 ```
 - Example
 ```bash
-cmatrix.exe -delay 100 -textcolor (0,255,0)
+cmatrix.exe -delay 100 -textcolor (0,255,0) -stopmidway false -mintrail 3 -maxtrail 8
 ```
