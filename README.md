@@ -22,3 +22,6 @@ cmatrix.exe -delay <value> -textcolor (r,g,b) -stopmidway <true/false>-mintrail 
 ```bash
 cmatrix.exe -delay 100 -textcolor (0,255,0) -stopmidway false -mintrail 3 -maxtrail 8
 ```
+## Screenshots
+![Image 1](./images/Img1.png)
+![Image 2](./images/Img2.png)
