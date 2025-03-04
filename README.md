@@ -20,5 +20,5 @@ cmatrix.exe -delay (delay in ms) -textcolor (r,g,b)
 ```
 - Example
 ```bash
-cmatrix.exe -delay 100 -textcolor "(0,255,0)"
+cmatrix.exe -delay 100 -textcolor (0,255,0)
 ```
