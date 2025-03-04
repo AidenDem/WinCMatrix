@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
         trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
         trailChars[i] = malloc(rows * sizeof(char));
         for (int j = 0; j < rows; j++) {
-            trailChars[i][j] = randChar();
+            trailChars[i][j] = ' ';
         }
     }
 
