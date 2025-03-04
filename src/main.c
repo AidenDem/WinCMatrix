@@ -1,5 +1,3 @@
-// AidenDem, feel free to use & distribute
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,13 +21,6 @@ int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
 bool stopmidway = DEFAULT_STOPMIDWAY;
-
-void setCursorPosition(int x, int y) {
-    COORD coord;
-    coord.X = x;
-    coord.Y = y;
-    SetConsoleCursorPosition(hConsole, coord);
-}
 
 void getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -63,7 +54,7 @@ void toggleCursor(bool toggle) {
 
 void handleSigint(int sig) {
     toggleCursor(true);
-    system("cls");
+    printf("\033[2J\033[H");
     exit(0);
 }
 
@@ -90,45 +81,57 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    int *drops = (int *)malloc(cols * sizeof(int));
-    int *trail_lengths = (int *)malloc(cols * sizeof(int));
+    int *drops = malloc(cols * sizeof(int));
+    int *trail_lengths = malloc(cols * sizeof(int));
+    char **trailChars = malloc(cols * sizeof(char *));
     for (int i = 0; i < cols; i++) {
         drops[i] = rand() % rows;
         trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
+        trailChars[i] = malloc(rows * sizeof(char));
+        for (int j = 0; j < rows; j++) {
+            trailChars[i][j] = randChar();
+        }
     }
 
+    int maxCellSize = 32;
+    int maxFrameSize = rows * (cols * maxCellSize + 1) + 16;
+    char *frameBuffer = malloc(maxFrameSize);
+
     DWORD written;
-    char buf[128];
 
     while (1) {
-        for (int i = 0; i < cols; i++) {
-            int drop = drops[i];
-            int trail_length = trail_lengths[i];
+        int pos = 0;
+        pos += sprintf(frameBuffer + pos, "\033[H");
+        
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                int drop = drops[c];
+                int trail_length = trail_lengths[c];
+                int d = (drop - r + rows) % rows;
 
-            for (int j = 0; j < trail_length; j++) {
-                int pos = (drop - j + rows) % rows;
-                double factor = 1.0 - ((double)j / trail_length);
-                int r = (int)(text_r * factor);
-                int g = (int)(text_g * factor);
-                int b = (int)(text_b * factor);
+                if (d < trail_length) {
+                    double factor = 1.0 - ((double)d / trail_length);
+                    int r_col = (int)(text_r * factor);
+                    int g_col = (int)(text_g * factor);
+                    int b_col = (int)(text_b * factor);
 
-                setCursorPosition(i, pos);
-
-                if (j == 0) {
-                    int len = sprintf(buf, "\033[1;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
-                    WriteConsole(hConsole, buf, len, &written, NULL);
+                    if (d == 0) {
+                        trailChars[c][r] = randChar();
+                        pos += sprintf(frameBuffer + pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[c][r]);
+                    } else {
+                        pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[c][r - 1]);
+                    }
                 } else {
-                    int len = sprintf(buf, "\033[0;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
-                    WriteConsole(hConsole, buf, len, &written, NULL);
+                    frameBuffer[pos++] = ' ';
                 }
             }
+        }
+        frameBuffer[pos] = '\0';
 
-            int clearPos = (drop - trail_length + rows) % rows;
-            setCursorPosition(i, clearPos);
-            int len = sprintf(buf, " ");
-            WriteConsole(hConsole, buf, len, &written, NULL);
+        WriteConsoleA(hConsole, frameBuffer, pos, &written, NULL);
 
-            drops[i] = (drop + 1) % rows;
+        for (int i = 0; i < cols; i++) {
+            drops[i] = (drops[i] + 1) % rows;
             if (stopmidway && (rand() % 10 > 8)) {
                 drops[i] = rand() % rows;
                 trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
@@ -137,7 +140,13 @@ int main(int argc, char *argv[]) {
         Sleep(delay);
     }
 
+    for (int i = 0; i < cols; i++) {
+        free(trailChars[i]);
+    }
     free(drops);
     free(trail_lengths);
+    free(trailChars);
+    free(frameBuffer);
+
     return 0;
 }
