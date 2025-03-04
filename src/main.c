@@ -9,11 +9,18 @@
 #include <signal.h>
 
 #define DEFAULT_DELAY 100
-#define DEFAULT_COLOR 0, 255, 0
+#define DEFAULT_COLOR_R 0
+#define DEFAULT_COLOR_G 255
+#define DEFAULT_COLOR_B 0
+#define DEFAULT_STOPMIDWAY true
+#define DEFAULT_MINTRAIL 3
+#define DEFAULT_MAXTRAIL 8
 
 int cols, rows;
 int delay = DEFAULT_DELAY;
-int text_r = 0, text_g = 255, text_b = 0;
+int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
+int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
+bool stopmidway = DEFAULT_STOPMIDWAY;
 
 void setCursorPosition(int x, int y) {
     COORD coord;
@@ -35,6 +42,14 @@ char randChar() {
 
 void parseColor(char *arg) {
     sscanf(arg, "(%d,%d,%d)", &text_r, &text_g, &text_b);
+}
+
+bool strToBool(const char *str) {
+    if (str == NULL) return false;
+    if (strcasecmp(str, "true") == 0 || strcmp(str, "1") == 0 || strcasecmp(str, "yes") == 0 || strcasecmp(str, "on") == 0) {
+        return true;
+    }
+    return false;
 }
 
 void toggleCursor(bool toggle) {
@@ -63,34 +78,53 @@ int main(int argc, char *argv[]) {
             delay = atoi(argv[i + 1]);
         } else if (strcmp(argv[i], "-textcolor") == 0 && i + 1 < argc) {
             parseColor(argv[i + 1]);
+        } else if (strcmp(argv[i], "-stopmidway") == 0 && i + 1 < argc) {
+            stopmidway = strToBool(argv[i + 1]);
+        } else if (strcmp(argv[i], "-mintrail") == 0 && i + 1 < argc) {
+            mintrail = atoi(argv[i + 1]);
+        } else if (strcmp(argv[i], "-maxtrail") == 0 && i + 1 < argc) {
+            maxtrail = atoi(argv[i + 1]);
         }
     }
 
     int *drops = (int *)malloc(cols * sizeof(int));
+    int *trail_lengths = (int *)malloc(cols * sizeof(int));
     for (int i = 0; i < cols; i++) {
         drops[i] = rand() % rows;
+        trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
     }
 
     while (1) {
+        getConsoleSize();
         for (int i = 0; i < cols; i++) {
             int drop = drops[i];
+            int trail_length = trail_lengths[i];
 
-            int head  = drop;
-            int trail = (drop - 1 + rows) % rows;
-            int fade  = (drop - 2 + rows) % rows;
+            for (int j = 0; j < trail_length; j++) {
+                int pos = (drop - j + rows) % rows;
 
-            setCursorPosition(i, head);
-            printf("\033[1;38;2;%d;%d;%dm%c\033[0m", text_r, text_g, text_b, randChar());
+                double factor = 1.0 - ((double)j / trail_length);
+                int r = (int)(text_r * factor);
+                int g = (int)(text_g * factor);
+                int b = (int)(text_b * factor);
 
-            setCursorPosition(i, trail);
-            printf("\033[0;38;2;%d;%d;%dm%c\033[0m", text_r / 2, text_g / 2, text_b / 2, randChar());
+                setCursorPosition(i, pos);
 
-            setCursorPosition(i, fade);
+                if (j == 0) {
+                    printf("\033[1;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
+                } else {
+                    printf("\033[0;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
+                }
+            }
+
+            int clearPos = (drop - trail_length + rows) % rows;
+            setCursorPosition(i, clearPos);
             printf(" ");
 
             drops[i] = (drop + 1) % rows;
-            if (rand() % 10 > 8) {
+            if (stopmidway && (rand() % 10 > 8)) {
                 drops[i] = rand() % rows;
+                trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
             }
         }
         fflush(stdout);
