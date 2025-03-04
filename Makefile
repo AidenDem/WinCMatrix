@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -O2
+CFLAGS = -s -Os -static -Iinclude -Ilibs/tJSON/include -flto -fno-exceptions -ffunction-sections -fdata-sections -Wl,--gc-sections
 SRC = src/main.c
 OUT = cmatrix.exe
 

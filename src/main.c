@@ -16,6 +16,8 @@
 #define DEFAULT_MINTRAIL 3
 #define DEFAULT_MAXTRAIL 8
 
+HANDLE hConsole = NULL;
+
 int cols, rows;
 int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
@@ -26,12 +28,12 @@ void setCursorPosition(int x, int y) {
     COORD coord;
     coord.X = x;
     coord.Y = y;
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
+    SetConsoleCursorPosition(hConsole, coord);
 }
 
 void getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
-    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+    GetConsoleScreenBufferInfo(hConsole, &csbi);
     cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
     rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 }
@@ -54,9 +56,9 @@ bool strToBool(const char *str) {
 
 void toggleCursor(bool toggle) {
     CONSOLE_CURSOR_INFO cursorInfo;
-    GetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
+    GetConsoleCursorInfo(hConsole, &cursorInfo);
     cursorInfo.bVisible = toggle;
-    SetConsoleCursorInfo(GetStdHandle(STD_OUTPUT_HANDLE), &cursorInfo);
+    SetConsoleCursorInfo(hConsole, &cursorInfo);
 }
 
 void handleSigint(int sig) {
@@ -66,6 +68,7 @@ void handleSigint(int sig) {
 }
 
 int main(int argc, char *argv[]) {
+    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     srand(time(NULL));
     getConsoleSize();
     system("cls");
@@ -94,15 +97,16 @@ int main(int argc, char *argv[]) {
         trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
     }
 
+    DWORD written;
+    char buf[128];
+
     while (1) {
-        getConsoleSize();
         for (int i = 0; i < cols; i++) {
             int drop = drops[i];
             int trail_length = trail_lengths[i];
 
             for (int j = 0; j < trail_length; j++) {
                 int pos = (drop - j + rows) % rows;
-
                 double factor = 1.0 - ((double)j / trail_length);
                 int r = (int)(text_r * factor);
                 int g = (int)(text_g * factor);
@@ -111,15 +115,18 @@ int main(int argc, char *argv[]) {
                 setCursorPosition(i, pos);
 
                 if (j == 0) {
-                    printf("\033[1;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
+                    int len = sprintf(buf, "\033[1;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
+                    WriteConsole(hConsole, buf, len, &written, NULL);
                 } else {
-                    printf("\033[0;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
+                    int len = sprintf(buf, "\033[0;38;2;%d;%d;%dm%c\033[0m", r, g, b, randChar());
+                    WriteConsole(hConsole, buf, len, &written, NULL);
                 }
             }
 
             int clearPos = (drop - trail_length + rows) % rows;
             setCursorPosition(i, clearPos);
-            printf(" ");
+            int len = sprintf(buf, " ");
+            WriteConsole(hConsole, buf, len, &written, NULL);
 
             drops[i] = (drop + 1) % rows;
             if (stopmidway && (rand() % 10 > 8)) {
@@ -127,10 +134,10 @@ int main(int argc, char *argv[]) {
                 trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
             }
         }
-        fflush(stdout);
         Sleep(delay);
     }
 
     free(drops);
+    free(trail_lengths);
     return 0;
 }
