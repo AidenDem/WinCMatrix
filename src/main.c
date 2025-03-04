@@ -1,3 +1,5 @@
+// AidenDem, feel free to use & distribute
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,11 +8,11 @@
 #include <stdbool.h> 
 #include <signal.h>
 
-#define DEFAULT_SPEED 100
+#define DEFAULT_DELAY 100
 #define DEFAULT_COLOR 0, 255, 0
 
 int cols, rows;
-int speed = DEFAULT_SPEED;
+int delay = DEFAULT_DELAY;
 int text_r = 0, text_g = 255, text_b = 0;
 
 void setCursorPosition(int x, int y) {
@@ -57,8 +59,8 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, handleSigint);
 
     for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-speed") == 0 && i + 1 < argc) {
-            speed = atoi(argv[i + 1]);
+        if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc) {
+            delay = atoi(argv[i + 1]);
         } else if (strcmp(argv[i], "-textcolor") == 0 && i + 1 < argc) {
             parseColor(argv[i + 1]);
         }
@@ -92,7 +94,7 @@ int main(int argc, char *argv[]) {
             }
         }
         fflush(stdout);
-        Sleep(speed);
+        Sleep(delay);
     }
 
     free(drops);
