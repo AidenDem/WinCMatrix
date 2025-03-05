@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
 
         for (int i = 0; i < cols; i++) {
             drops[i] = (drops[i] + 1) % rows;
-            if (stopmidway && (rand() % 10 > 8)) {
+            if (stopmidway && (rand() % 100 > 10)) {
                 drops[i] = rand() % rows;
                 trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
             }
