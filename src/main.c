@@ -39,7 +39,7 @@ void parseColor(char *arg) {
 
 bool strToBool(const char *str) {
     if (str == NULL) return false;
-    if (strcasecmp(str, "true") == 0 || strcmp(str, "1") == 0 || strcasecmp(str, "yes") == 0 || strcasecmp(str, "on") == 0) {
+    if (strcmp(str, "true") == 0 || strcmp(str, "1") == 0 || strcmp(str, "yes") == 0 || strcmp(str, "on") == 0) {
         return true;
     }
     return false;
@@ -59,15 +59,17 @@ void handleSigint(int sig) {
 }
 
 int main(int argc, char *argv[]) {
+    int i,j;
+
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
     srand(time(NULL));
     getConsoleSize();
     system("cls");
     toggleCursor(false);
 
     signal(SIGINT, handleSigint);
-
-    for (int i = 1; i < argc; i++) {
+    for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc) {
             delay = atoi(argv[i + 1]);
         } else if (strcmp(argv[i], "-textcolor") == 0 && i + 1 < argc) {
@@ -84,11 +86,11 @@ int main(int argc, char *argv[]) {
     int *drops = malloc(cols * sizeof(int));
     int *trail_lengths = malloc(cols * sizeof(int));
     char **trailChars = malloc(cols * sizeof(char *));
-    for (int i = 0; i < cols; i++) {
+    for (i = 0; i < cols; i++) {
         drops[i] = rand() % rows;
         trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
         trailChars[i] = malloc(rows * sizeof(char));
-        for (int j = 0; j < rows; j++) {
+        for (j = 0; j < rows; j++) {
             trailChars[i][j] = ' ';
         }
     }
@@ -103,11 +105,11 @@ int main(int argc, char *argv[]) {
         int pos = 0;
         pos += sprintf(frameBuffer + pos, "\033[H");
         
-        for (int r = 0; r < rows; r++) {
-            for (int c = 0; c < cols; c++) {
-                int drop = drops[c];
-                int trail_length = trail_lengths[c];
-                int d = (drop - r + rows) % rows;
+        for (i = 0; i < rows; i++) {
+            for (j = 0; j < cols; j++) {
+                int drop = drops[j];
+                int trail_length = trail_lengths[j];
+                int d = (drop - i + rows) % rows;
 
                 if (d < trail_length) {
                     double factor = 1.0 - ((double)d / trail_length);
@@ -116,10 +118,10 @@ int main(int argc, char *argv[]) {
                     int b_col = (int)(text_b * factor);
 
                     if (d == 0) {
-                        trailChars[c][r] = randChar();
-                        pos += sprintf(frameBuffer + pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[c][r]);
+                        trailChars[j][i] = randChar();
+                        pos += sprintf(frameBuffer + pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][i]);
                     } else {
-                        pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[c][r - 1]);
+                        pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][i - 1]);
                     }
                 } else {
                     frameBuffer[pos++] = ' ';
@@ -130,7 +132,7 @@ int main(int argc, char *argv[]) {
 
         WriteConsoleA(hConsole, frameBuffer, pos, &written, NULL);
 
-        for (int i = 0; i < cols; i++) {
+        for (i = 0; i < cols; i++) {
             drops[i] = (drops[i] + 1) % rows;
             if (stopmidway && (rand() % 100 > 10)) {
                 drops[i] = rand() % rows;
@@ -140,7 +142,7 @@ int main(int argc, char *argv[]) {
         Sleep(delay);
     }
 
-    for (int i = 0; i < cols; i++) {
+    for (i = 0; i < cols; i++) {
         free(trailChars[i]);
     }
     free(drops);
