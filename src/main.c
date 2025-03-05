@@ -13,6 +13,7 @@
 #define DEFAULT_STOPMIDWAY false
 #define DEFAULT_MINTRAIL 3
 #define DEFAULT_MAXTRAIL 8
+#define DEFAULT_SIDEWAY false
 
 HANDLE hConsole = NULL;
 
@@ -20,7 +21,7 @@ int cols, rows;
 int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
-bool stopmidway = DEFAULT_STOPMIDWAY;
+bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY;
 
 void getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -80,16 +81,17 @@ int main(int argc, char *argv[]) {
             mintrail = atoi(argv[i + 1]);
         } else if (strcmp(argv[i], "-maxtrail") == 0 && i + 1 < argc) {
             maxtrail = atoi(argv[i + 1]);
+        } else if (strcmp(argv[i], "-sideway") == 0 && i + 1 < argc) {
+            sideway = strToBool(argv[i + 1]);
         }
     }
 
-    int *drops = malloc(cols * sizeof(int));
-    int *trail_lengths = malloc(cols * sizeof(int));
-    char **trailChars = malloc(cols * sizeof(char *));
+    int drops[cols];
+    int trail_lengths[cols];
+    char trailChars[cols][rows];
     for (i = 0; i < cols; i++) {
         drops[i] = rand() % rows;
         trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
-        trailChars[i] = malloc(rows * sizeof(char));
         for (j = 0; j < rows; j++) {
             trailChars[i][j] = ' ';
         }
@@ -97,7 +99,7 @@ int main(int argc, char *argv[]) {
 
     int maxCellSize = 32;
     int maxFrameSize = rows * (cols * maxCellSize + 1) + 16;
-    char *frameBuffer = malloc(maxFrameSize);
+    char frameBuffer[maxFrameSize];
 
     DWORD written;
 
@@ -106,7 +108,7 @@ int main(int argc, char *argv[]) {
         pos += sprintf(frameBuffer + pos, "\033[H");
         
         for (i = 0; i < rows; i++) {
-            for (j = 0; j < cols; j++) {
+            for (j = sideway ? 1 : 0; j < cols; j++) {
                 int drop = drops[j];
                 int trail_length = trail_lengths[j];
                 int d = (drop - i + rows) % rows;
@@ -121,7 +123,7 @@ int main(int argc, char *argv[]) {
                         trailChars[j][i] = randChar();
                         pos += sprintf(frameBuffer + pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][i]);
                     } else {
-                        pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][i - 1]);
+                        pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][(i - 1 + rows) % rows]);
                     }
                 } else {
                     frameBuffer[pos++] = ' ';
