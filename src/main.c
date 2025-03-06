@@ -97,8 +97,8 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    int maxCellSize = 32;
-    int maxFrameSize = rows * (cols * maxCellSize + 1) + 16;
+    int maxCellSize = 25;
+    int maxFrameSize = rows * cols * maxCellSize;
     char frameBuffer[maxFrameSize];
 
     DWORD written;
