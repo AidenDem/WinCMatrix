@@ -1,3 +1,4 @@
+// Libraries
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -6,6 +7,8 @@
 #include <stdbool.h> 
 #include <signal.h>
 
+// Constants
+// Default Settings
 #define DEFAULT_DELAY 100
 #define DEFAULT_COLOR_R 0
 #define DEFAULT_COLOR_G 255
@@ -15,14 +18,18 @@
 #define DEFAULT_MAXTRAIL 8
 #define DEFAULT_SIDEWAY false
 
+// Console Handle
 HANDLE hConsole = NULL;
 
+// Variables
 int cols, rows;
 int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
 bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY;
+int i,j;
 
+// Functions
 void getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
@@ -59,17 +66,7 @@ void handleSigint(int sig) {
     exit(0);
 }
 
-int main(int argc, char *argv[]) {
-    int i,j;
-
-    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-
-    srand(time(NULL));
-    getConsoleSize();
-    system("cls");
-    toggleCursor(false);
-
-    signal(SIGINT, handleSigint);
+void parseParameters(int argc, char *argv[]) {
     for (i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc) {
             delay = atoi(argv[i + 1]);
@@ -85,6 +82,19 @@ int main(int argc, char *argv[]) {
             sideway = strToBool(argv[i + 1]);
         }
     }
+}
+
+// Main Program
+int main(int argc, char *argv[]) {
+    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+
+    srand(time(NULL));
+    getConsoleSize();
+    system("cls");
+    toggleCursor(false);
+
+    signal(SIGINT, handleSigint);
+    parseParameters(argc, argv);
 
     int drops[cols];
     int trail_lengths[cols];
@@ -103,6 +113,7 @@ int main(int argc, char *argv[]) {
 
     DWORD written;
 
+    // Main Loop
     while (1) {
         int pos = 0;
         pos += sprintf(frameBuffer + pos, "\033[H");
