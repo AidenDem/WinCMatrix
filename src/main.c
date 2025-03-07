@@ -144,13 +144,5 @@ int main(int argc, char *argv[]) {
         Sleep(delay);
     }
 
-    for (i = 0; i < cols; i++) {
-        free(trailChars[i]);
-    }
-    free(drops);
-    free(trail_lengths);
-    free(trailChars);
-    free(frameBuffer);
-
     return 0;
 }
