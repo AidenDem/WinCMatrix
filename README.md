@@ -31,6 +31,7 @@ cmatrix.exe -delay 100 -textcolor (0,255,0) -stopmidway false -mintrail 3 -maxtr
 | `-mintrail <value>` | Minimum length of falling trails. |
 | `-maxtrail <value>` | Maximum length of falling trails. |
 | `-sideway <true/false>` | Whether the text goes sideways. |
+| `--help` | Display the help message. |
 ## Screenshots
 ![Image 1](./images/Img1.png)
 ![Image 2](./images/Img2.png)

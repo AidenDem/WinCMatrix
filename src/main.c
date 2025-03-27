@@ -26,7 +26,7 @@ int cols, rows;
 int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
-bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY;
+bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY, help = false;
 int i,j;
 
 // Functions
@@ -80,12 +80,25 @@ void parseParameters(int argc, char *argv[]) {
             maxtrail = atoi(argv[i + 1]);
         } else if (strcmp(argv[i], "-sideway") == 0 && i + 1 < argc) {
             sideway = strToBool(argv[i + 1]);
+        } else if (strcmp(argv[i], "--help") == 0) {
+            printf("Usage: cmatrix.exe [options]\n"
+                "Options:\n"
+                "  -delay <value>               Set the speed of the animation (lower = faster).\n"
+                "  -textcolor (r,g,b)           Set the text color using RGB values.\n"
+                "  -stopmidway <true/false>     Enable or disable text stopping midway.\n"
+                "  -mintrail <value>            Set the minimum length of falling trails.\n"
+                "  -maxtrail <value>            Set the maximum length of falling trails.\n"
+                "  -sideway <true/false>        Enable or disable sideways text movement.\n"
+                "  --help                       Display this help message.\n");         
+            help = true;
         }
     }
 }
 
 // Main Program
 int main(int argc, char *argv[]) {
+    parseParameters(argc, argv);
+    if (help) return 0;
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
     srand(time(NULL));
@@ -94,7 +107,7 @@ int main(int argc, char *argv[]) {
     toggleCursor(false);
 
     signal(SIGINT, handleSigint);
-    parseParameters(argc, argv);
+    Sleep(50000);
 
     int drops[cols];
     int trail_lengths[cols];
