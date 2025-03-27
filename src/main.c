@@ -107,7 +107,6 @@ int main(int argc, char *argv[]) {
     toggleCursor(false);
 
     signal(SIGINT, handleSigint);
-    Sleep(50000);
 
     int drops[cols];
     int trail_lengths[cols];
