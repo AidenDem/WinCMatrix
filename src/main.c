@@ -4,7 +4,7 @@
 #include <string.h>
 #include <windows.h>
 #include <time.h>
-#include <stdbool.h> 
+#include <stdbool.h>
 #include <signal.h>
 
 // Constants
@@ -14,9 +14,10 @@
 #define DEFAULT_COLOR_G 255
 #define DEFAULT_COLOR_B 0
 #define DEFAULT_STOPMIDWAY false
-#define DEFAULT_MINTRAIL 3
-#define DEFAULT_MAXTRAIL 8
+#define DEFAULT_MINTRAIL 4
+#define DEFAULT_MAXTRAIL 12
 #define DEFAULT_SIDEWAY false
+#define DEFAULT_COLOR_ENABLED true
 
 // Console Handle
 HANDLE hConsole = NULL;
@@ -26,7 +27,7 @@ int cols, rows;
 int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
-bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY, help = false;
+bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED, help = false;
 int i,j;
 
 // Functions
@@ -80,16 +81,24 @@ void parseParameters(int argc, char *argv[]) {
             maxtrail = atoi(argv[i + 1]);
         } else if (strcmp(argv[i], "-sideway") == 0 && i + 1 < argc) {
             sideway = strToBool(argv[i + 1]);
+        } else if (strcmp(argv[i], "-color") == 0 && i + 1 < argc) {
+            color = strToBool(argv[i + 1]);
         } else if (strcmp(argv[i], "--help") == 0) {
-            printf("Usage: cmatrix.exe [options]\n"
+            printf(
+                "Usage: cmatrix.exe [options]\n"
                 "Options:\n"
-                "  -delay <value>               Set the speed of the animation (lower = faster).\n"
+                "  -delay <value>               Set the speed of the animation (lower = faster, in ms).\n"
                 "  -textcolor (r,g,b)           Set the text color using RGB values.\n"
                 "  -stopmidway <true/false>     Enable or disable text stopping midway.\n"
                 "  -mintrail <value>            Set the minimum length of falling trails.\n"
                 "  -maxtrail <value>            Set the maximum length of falling trails.\n"
                 "  -sideway <true/false>        Enable or disable sideways text movement.\n"
-                "  --help                       Display this help message.\n");         
+                "  -color <true/false>          Enable or disable color output.\n"
+                "  --help                       Display this help message.\n"
+                "Made by AidenDem (https://github.com/AidenDem)\n"
+                "\nCopyright (c) 2025 AidenDem\n"
+                "Licensed under the MIT License\n"
+            );
             help = true;
         }
     }
@@ -129,7 +138,7 @@ int main(int argc, char *argv[]) {
     while (1) {
         int pos = 0;
         pos += sprintf(frameBuffer + pos, "\033[H");
-        
+
         for (i = 0; i < rows; i++) {
             for (j = sideway ? 1 : 0; j < cols; j++) {
                 int drop = drops[j];
@@ -144,9 +153,17 @@ int main(int argc, char *argv[]) {
 
                     if (d == 0) {
                         trailChars[j][i] = randChar();
-                        pos += sprintf(frameBuffer + pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][i]);
+                        if (color) {
+                            pos += sprintf(frameBuffer + pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][i]);
+                        } else {
+                            pos += sprintf(frameBuffer + pos, "%c", trailChars[j][i]);
+                        }
                     } else {
-                        pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][(i - 1 + rows) % rows]);
+                        if (color) {
+                            pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][(i - 1 + rows) % rows]);
+                        } else {
+                            pos += sprintf(frameBuffer + pos, "%c", trailChars[j][(i - 1 + rows) % rows]);
+                        }
                     }
                 } else {
                     frameBuffer[pos++] = ' ';
