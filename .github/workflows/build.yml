@@ -13,7 +13,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install MinGW on Windows
         run: |
           choco install mingw
@@ -21,7 +21,7 @@ jobs:
       - name: Run Makefile on Windows
         run: make
       - name: Upload build artifact from Windows
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: cmatrix-windows
           path: cmatrix.exe
