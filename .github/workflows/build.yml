@@ -1,0 +1,27 @@
+name: Build Program
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install MinGW on Windows
+        run: |
+          choco install mingw
+          refresh-env
+      - name: Run Makefile on Windows
+        run: make
+      - name: Upload build artifact from Windows
+        uses: actions/upload-artifact@v2
+        with:
+          name: cmatrix-windows
+          path: cmatrix.exe
