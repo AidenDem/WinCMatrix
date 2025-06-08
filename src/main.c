@@ -19,6 +19,10 @@
 #define DEFAULT_SIDEWAY false
 #define DEFAULT_COLOR_ENABLED true
 
+#define CHARSET_ASCII "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+#define CHARSET_BINARY "01"
+#define CHARSET_KATAKANA "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"
+
 // Console Handle
 HANDLE hConsole = NULL;
 
@@ -29,6 +33,9 @@ int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
 bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
 int i,j;
+
+const char* activeCharset = CHARSET_ASCII;
+int charsetLength = 0;
 
 // Structs
 typedef struct {
@@ -67,13 +74,13 @@ void getConsoleSize() {
 }
 
 char randChar() {
-    // Returns a random printable ASCII character
-    return 33 + (rand() % 94);
+    // Returns a random printable character out of charset
+    return activeCharset[rand() % charsetLength];
 }
 
 void parseColor(const char *arg) {
     // Parses string in format "(r,g,b)" to RGB color values
-    sscanf(arg, "(%d,%d,%d)", &text_r, &text_g, &text_b);
+    sscanf_s(arg, "(%d,%d,%d)", &text_r, &text_g, &text_b);
 }
 
 bool strToBool(const char *str) {
@@ -128,6 +135,17 @@ void parseParameters(int argc, char *argv[]) {
         // Other cases
         if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--textcolor") == 0) && i + 1 < argc) {
             parseColor(argv[i + 1]);
+        } else if ((strcmp(argv[i], "--charset") == 0 || strcmp(argv[i], "-ch") == 0) && i + 1 < argc) {
+            const char* arg = argv[++i];
+            if (strcmp(arg, "ascii") == 0) {
+                activeCharset = CHARSET_ASCII;
+            } else if (strcmp(arg, "binary") == 0) {
+                activeCharset = CHARSET_BINARY;
+            } else if (strcmp(arg, "katakana") == 0) {
+                activeCharset = CHARSET_KATAKANA;
+            } else {
+                activeCharset = arg;
+            }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf(
                 "Usage: cmatrix.exe [options]\n"
@@ -154,6 +172,7 @@ void parseParameters(int argc, char *argv[]) {
 // Main Program
 int main(int argc, char *argv[]) {
     parseParameters(argc, argv); // Parse command-line arguments
+    charsetLength = strlen(activeCharset);
 
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // Get console handle
 
