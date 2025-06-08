@@ -158,6 +158,7 @@ void parseParameters(int argc, char *argv[]) {
                 "  -S, --sideway true|false        Enable or disable sideways movement\n"
                 "  -C, --color true|false          Enable or disable color output\n"
                 "  -h, --help                      Display this help message\n"
+                "  -ch, --charset <name|custom>    Set character set: ascii | binary | katakana | <custom>\n"
                 "Made by AidenDem (https://github.com/AidenDem)\n"
                 "\nCopyright (c) 2025 AidenDem\n"
                 "Licensed under the MIT License\n"

@@ -34,6 +34,7 @@ cmatrix.exe -delay 100 --textcolor (0,255,0) --stopmidway false --mintrail 3 --m
 | `-M <value>`, `--maxtrail <value>` | Maximum length of falling trails.      |
 | `-S <true/false>`, `--sideway <true/false>` | Whether the text goes sideways.     |
 | `-C <true/false>`, `--color <true/false>` | Whether to enable color output.      |
+| `-ch <name/custom>`, `--charset <name/custom>`    | Set character set: ascii / binary / katakana or custom |
 | `-h`, `--help`            | Display the help message.               |
 ## Screenshots
 ![Image 1](./images/Img1.png)
