@@ -30,6 +30,34 @@ int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
 bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
 int i,j;
 
+// Structs
+typedef struct {
+    const char* short_opt;
+    const char* long_opt;
+    int* target;
+} IntOption;
+
+typedef struct {
+    const char* short_opt;
+    const char* long_opt;
+    bool* target;
+} BoolOption;
+
+// Commands
+IntOption int_options[] = {
+    {"-d", "--delay", &delay},
+    {"-m", "--mintrail", &mintrail},
+    {"-M", "--maxtrail", &maxtrail},
+    {NULL, NULL, NULL}
+};
+
+BoolOption bool_options[] = {
+    {"-s", "--stopmidway", &stopmidway},
+    {"-S", "--sideway", &sideway},
+    {"-C", "--color", &color},
+    {NULL, NULL, NULL}
+};
+
 // Functions
 void getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -75,39 +103,51 @@ void handleSigint(int sig) {
 void parseParameters(int argc, char *argv[]) {
     // Parses all parameters given in the command line
     // Example: cmatrix.exe -delay 100 -textcolor (0,255,0) -stopmidway true -mintrail 5 -maxtrail 10 -sideway false -color true
+
     for (i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-delay") == 0 && i + 1 < argc) {
-            delay = atoi(argv[i + 1]);
-        } else if (strcmp(argv[i], "-textcolor") == 0 && i + 1 < argc) {
+        // Int Flags
+        for (int j = 0; int_options[j].short_opt != NULL; j++) {
+            if ((strcmp(argv[i], int_options[j].short_opt) == 0 || strcmp(argv[i], int_options[j].long_opt) == 0) && i + 1 < argc) {
+                *(int_options[j].target) = atoi(argv[++i]);
+
+                // Get out of both loops
+                goto parsed;
+            }
+        }
+
+        // Bool Flags
+        for (int j = 0; bool_options[j].short_opt != NULL; j++) {
+            if ((strcmp(argv[i], bool_options[j].short_opt) == 0 || strcmp(argv[i], bool_options[j].long_opt) == 0) && i + 1 < argc) {
+                *(bool_options[j].target) = strToBool(argv[++i]);
+
+                // Get out of both loops
+                goto parsed;
+            }
+        }
+
+        // Other cases
+        if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--textcolor") == 0) && i + 1 < argc) {
             parseColor(argv[i + 1]);
-        } else if (strcmp(argv[i], "-stopmidway") == 0 && i + 1 < argc) {
-            stopmidway = strToBool(argv[i + 1]);
-        } else if (strcmp(argv[i], "-mintrail") == 0 && i + 1 < argc) {
-            mintrail = atoi(argv[i + 1]);
-        } else if (strcmp(argv[i], "-maxtrail") == 0 && i + 1 < argc) {
-            maxtrail = atoi(argv[i + 1]);
-        } else if (strcmp(argv[i], "-sideway") == 0 && i + 1 < argc) {
-            sideway = strToBool(argv[i + 1]);
-        } else if (strcmp(argv[i], "-color") == 0 && i + 1 < argc) {
-            color = strToBool(argv[i + 1]);
-        } else if (strcmp(argv[i], "--help") == 0) {
+        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf(
                 "Usage: cmatrix.exe [options]\n"
                 "Options:\n"
-                "  -delay <value>               Set the speed of the animation (lower = faster, in ms).\n"
-                "  -textcolor (r,g,b)           Set the text color using RGB values.\n"
-                "  -stopmidway <true/false>     Enable or disable text stopping midway.\n"
-                "  -mintrail <value>            Set the minimum length of falling trails.\n"
-                "  -maxtrail <value>            Set the maximum length of falling trails.\n"
-                "  -sideway <true/false>        Enable or disable sideways text movement.\n"
-                "  -color <true/false>          Enable or disable color output.\n"
-                "  --help                       Display this help message.\n"
+                "  -d, --delay <value>             Set the speed of the animation (ms)\n"
+                "  -c, --textcolor (r,g,b)         Set the text color using RGB values\n"
+                "  -s, --stopmidway true|false     Enable or disable text stopping midway\n"
+                "  -m, --mintrail <value>          Minimum trail length\n"
+                "  -M, --maxtrail <value>          Maximum trail length\n"
+                "  -S, --sideway true|false        Enable or disable sideways movement\n"
+                "  -C, --color true|false          Enable or disable color output\n"
+                "  -h, --help                      Display this help message\n"
                 "Made by AidenDem (https://github.com/AidenDem)\n"
                 "\nCopyright (c) 2025 AidenDem\n"
                 "Licensed under the MIT License\n"
             );
             exit(0);
         }
+
+        parsed: continue;
     }
 }
 

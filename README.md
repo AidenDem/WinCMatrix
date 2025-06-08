@@ -19,22 +19,22 @@ gcc -O2 src/main.c -o cmatrix.exe
 ### Using the program
 - Format
 ```bash
-cmatrix.exe -delay <value> -textcolor (r,g,b) -stopmidway <true/false> -mintrail <value> -maxtrail <value> -sideway <true/false>
+cmatrix.exe -delay <value> --textcolor (r,g,b) --stopmidway <true/false> --mintrail <value> --maxtrail <value> --sideway <true/false>
 ```
 - Example
 ```bash
-cmatrix.exe -delay 100 -textcolor (0,255,0) -stopmidway false -mintrail 3 -maxtrail 8 -sideway false
+cmatrix.exe -delay 100 --textcolor (0,255,0) --stopmidway false --mintrail 3 --maxtrail 8 --sideway false
 ```
-|Option|Description|
-|------|-----------|
-| `-delay <value>`   | Adjusts the speed (lower = faster). |
-| `-textcolor (r,g,b)` | Sets text color using RGB values. |
-| `-stopmidway <true/false>` | Whether the text stops midway. |
-| `-mintrail <value>` | Minimum length of falling trails. |
-| `-maxtrail <value>` | Maximum length of falling trails. |
-| `-sideway <true/false>` | Whether the text goes sideways. |
-| `-color <true/false>` | Whether to enable color output. |
-| `--help` | Display the help message. |
+| Option| Description|
+|-|-|
+| `-d <value>`, `--delay <value>`   | Adjusts the speed (lower = faster).     |
+| `-c <r,g,b>`, `--textcolor (r,g,b)` | Sets text color using RGB values.     |
+| `-s <true/false>`, `--stopmidway <true/false>` | Whether the text stops midway.      |
+| `-m <value>`, `--mintrail <value>` | Minimum length of falling trails.      |
+| `-M <value>`, `--maxtrail <value>` | Maximum length of falling trails.      |
+| `-S <true/false>`, `--sideway <true/false>` | Whether the text goes sideways.     |
+| `-C <true/false>`, `--color <true/false>` | Whether to enable color output.      |
+| `-h`, `--help`            | Display the help message.               |
 ## Screenshots
 ![Image 1](./images/Img1.png)
 ![Image 2](./images/Img2.png)

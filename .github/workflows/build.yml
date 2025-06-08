@@ -2,11 +2,9 @@ name: Build Program
 
 on:
   push:
-    branches:
-      - main
+    branches: [$default-branch]
   pull_request:
-    branches:
-      - main
+    branches: [$default-branch]
 
 jobs:
   build-windows:
@@ -15,9 +13,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Install MinGW on Windows
-        run: |
-          choco install mingw
-          refresh-env
+        run: choco install mingw
       - name: Run Makefile on Windows
         run: make
       - name: Upload build artifact from Windows
