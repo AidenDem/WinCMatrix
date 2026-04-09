@@ -27,7 +27,6 @@
 HANDLE hConsole = NULL;
 
 // Variables
-int cols, rows;
 int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
@@ -52,6 +51,11 @@ typedef struct {
     bool* target;
 } BoolOption;
 
+typedef struct {
+    int x;
+    int y;
+} Vector2;
+
 // Commands
 IntOption int_options[] = {
     {"-d", "--delay", &delay},
@@ -69,11 +73,10 @@ BoolOption bool_options[] = {
 };
 
 // Functions
-void getConsoleSize() {
+Vector2 getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
-    cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
-    rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
+    return (Vector2){csbi.srWindow.Right - csbi.srWindow.Left + 1, csbi.srWindow.Bottom - csbi.srWindow.Top + 1};
 }
 
 char randChar() {
@@ -183,9 +186,11 @@ int main(int argc, char *argv[]) {
 
     // Prepare the console
     srand(time(NULL));
-    getConsoleSize();
     system("cls");
     toggleCursor(false);
+
+    // Get Console Size
+    Vector2 consoleSize = getConsoleSize();
 
     // Handle SIGINT signal, ensures graceful exit
     signal(SIGINT, handleSigint);
@@ -197,20 +202,20 @@ int main(int argc, char *argv[]) {
     srand(seed);
 
     // Initialize trail positions and lengths for each column
-    int drops[cols];
-    int trail_lengths[cols];
-    char trailChars[cols][rows];
-    for (i = 0; i < cols; i++) {
-        drops[i] = rand() % rows;
+    int drops[consoleSize.x];
+    int trail_lengths[consoleSize.x];
+    char trailChars[consoleSize.x][consoleSize.y];
+    for (i = 0; i < consoleSize.x; i++) {
+        drops[i] = rand() % consoleSize.y;
         trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail; // Random trail length between mintrail and maxtrail
-        for (j = 0; j < rows; j++) {
+        for (j = 0; j < consoleSize.y; j++) {
             trailChars[i][j] = ' ';
         }
     }
 
     // Frame buffer assignment
     int maxCellSize = 25; // Estimated maximum size of a single cell's output (including ANSI codes, cannot be fully accurate due to dynamic user input)
-    int maxFrameSize = rows * cols * maxCellSize;
+    int maxFrameSize = consoleSize.y * consoleSize.x * maxCellSize;
     char frameBuffer[maxFrameSize];
 
     DWORD written;
@@ -221,14 +226,14 @@ int main(int argc, char *argv[]) {
         int pos = 0;
         pos += sprintf(frameBuffer + pos, "\033[H"); // Move cursor to top-left
 
-        // Double for loop to iterate through rows and cols
-        for (i = 0; i < rows; i++) {
+        // Double for loop to iterate through consoleSize.y and consoleSize.x
+        for (i = 0; i < consoleSize.y; i++) {
             // If sideways, slightly offset the trails resulting in a horizontal effect
-            for (j = sideway ? 1 : 0; j < cols; j++) {
+            for (j = sideway ? 1 : 0; j < consoleSize.x; j++) {
                 // Gets current trail
                 int drop = drops[j];
                 int trail_length = trail_lengths[j];
-                int d = (drop - i + rows) % rows;
+                int d = (drop - i + consoleSize.y) % consoleSize.y;
 
                 if (d < trail_length) {
                     // Assigns color based on distance from the top character of the trail
@@ -253,9 +258,9 @@ int main(int argc, char *argv[]) {
                         // Same principle as above
                         // Just a slightly different formula to get the current trail character
                         if (color) {
-                            pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][(i - 1 + rows) % rows]);
+                            pos += sprintf(frameBuffer + pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, trailChars[j][(i - 1 + consoleSize.y) % consoleSize.y]);
                         } else {
-                            pos += sprintf(frameBuffer + pos, "%c", trailChars[j][(i - 1 + rows) % rows]);
+                            pos += sprintf(frameBuffer + pos, "%c", trailChars[j][(i - 1 + consoleSize.y) % consoleSize.y]);
                         }
                     }
                 } else {
@@ -269,11 +274,11 @@ int main(int argc, char *argv[]) {
         WriteConsoleA(hConsole, frameBuffer, pos, &written, NULL);
 
         // Iterate through columns
-        for (i = 0; i < cols; i++) {
-            drops[i] = (drops[i] + 1) % rows; // Move trail down by 1 row
+        for (i = 0; i < consoleSize.x; i++) {
+            drops[i] = (drops[i] + 1) % consoleSize.y; // Move trail down by 1 row
             // If stopmidway is enabled and a random condition is met, reset the trail
             if (stopmidway && (rand() % 100 > 10)) {
-                drops[i] = rand() % rows;
+                drops[i] = rand() % consoleSize.y;
                 trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
             }
         }
