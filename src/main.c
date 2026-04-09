@@ -37,6 +37,8 @@ int i,j;
 const char* activeCharset = CHARSET_ASCII;
 int charsetLength = 0;
 
+int seed = -1;
+
 // Structs
 typedef struct {
     const char* short_opt;
@@ -55,6 +57,7 @@ IntOption int_options[] = {
     {"-d", "--delay", &delay},
     {"-m", "--mintrail", &mintrail},
     {"-M", "--maxtrail", &maxtrail},
+    {"-sd", "--seed", &seed},
     {NULL, NULL, NULL}
 };
 
@@ -159,6 +162,7 @@ void parseParameters(int argc, char *argv[]) {
                 "  -C, --color true|false          Enable or disable color output\n"
                 "  -h, --help                      Display this help message\n"
                 "  -ch, --charset <name|custom>    Set character set: ascii | binary | katakana | <custom>\n"
+                "  -sd, --seed <value>             Sets the seed of the effect\n"
                 "Made by AidenDem (https://github.com/AidenDem)\n"
                 "\nCopyright (c) 2025 AidenDem\n"
                 "Licensed under the MIT License\n"
@@ -185,6 +189,12 @@ int main(int argc, char *argv[]) {
 
     // Handle SIGINT signal, ensures graceful exit
     signal(SIGINT, handleSigint);
+
+    // Check if a seed was provided, if not generate random seed
+    if (seed == -1) {
+        seed = rand();
+    }
+    srand(seed);
 
     // Initialize trail positions and lengths for each column
     int drops[cols];
