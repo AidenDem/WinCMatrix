@@ -19,6 +19,9 @@
 #define DEFAULT_SIDEWAY false
 #define DEFAULT_COLOR_ENABLED true
 
+#define ANSI_CELL_SIZE 29
+#define CHAR_CELL_SIZE 1
+
 #define CHARSET_ASCII "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
 #define CHARSET_BINARY "01"
 #define CHARSET_KATAKANA "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"
@@ -113,6 +116,12 @@ void handleSigint(int sig) {
     toggleCursor(true);
     printf("\033[2J\033[H"); // Cleans up matrix
     running = false;
+}
+
+// Used for sanitizing RGB input
+inline int clamp255(int v)
+{
+    return v < 0 ? 0 : (v > 255 ? 255 : v);
 }
 
 void parseParameters(int argc, char *argv[]) {
@@ -215,9 +224,14 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // Input Sanitizing
+    text_r = clamp255(text_r);
+    text_g = clamp255(text_g);
+    text_b = clamp255(text_b);
+
     // Frame buffer assignment
-    int maxCellSize = 25; // Estimated maximum size of a single cell's output (including ANSI codes, cannot be fully accurate due to dynamic user input)
-    int maxFrameSize = consoleSize.y * consoleSize.x * maxCellSize;
+    int maxCellSize = color ? ANSI_CELL_SIZE : CHAR_CELL_SIZE; // Estimated maximum size of a single cell's output (including ANSI codes, cannot be fully accurate due to dynamic user input)
+    int maxFrameSize = consoleSize.y * consoleSize.x * maxCellSize + 2;
     char *frameBuffer = malloc(maxFrameSize);
 
     // Malloc allocation validation
@@ -229,7 +243,7 @@ int main(int argc, char *argv[]) {
     while (running) {
         // Buffer position
         int pos = 0;
-        pos += sprintf(frameBuffer + pos, "\033[H"); // Move cursor to top-left
+        pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "\033[H"); // Move cursor to top-left
 
         // Double for loop to iterate through consoleSize.y and consoleSize.x
         for (int i = 0; i < consoleSize.y; i++) {
@@ -258,7 +272,7 @@ int main(int argc, char *argv[]) {
                         if (color) {
                             pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,i));
                         } else {
-                            pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "%c", TRAIL(j,i));
+                            frameBuffer[pos++] = TRAIL(j, i);
                         }
                     } else {
                         // Same principle as above
@@ -266,7 +280,7 @@ int main(int argc, char *argv[]) {
                         if (color) {
                             pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,(i - 1 + consoleSize.y) % consoleSize.y));
                         } else {
-                            pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "%c", TRAIL(j,(i - 1 + consoleSize.y) % consoleSize.y));
+                           frameBuffer[pos++] = TRAIL(j,(i - 1 + consoleSize.y) % consoleSize.y);
                         }
                     }
                 } else {
