@@ -1,5 +1,5 @@
 # WinCMatrix
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)  
 A Windows version of CMatrix written in C from scratch, replicating the famous Matrix digital rain effect.
 ## Dependencies
 - GCC ([MinGW for Windows](https://sourceforge.net/projects/mingw/))
@@ -29,11 +29,11 @@ cmatrix.exe -delay 100 --textcolor (0,255,0) --stopmidway false --mintrail 3 --m
 |-|-|
 | `-d <value>`, `--delay <value>`   | Adjusts the speed (lower = faster).     |
 | `-c <r,g,b>`, `--textcolor (r,g,b)` | Sets text color using RGB values.     |
-| `-s <true/false>`, `--stopmidway <true/false>` | Whether the text stops midway.      |
 | `-m <value>`, `--mintrail <value>` | Minimum length of falling trails.      |
 | `-M <value>`, `--maxtrail <value>` | Maximum length of falling trails.      |
 | `-S <true/false>`, `--sideway <true/false>` | Whether the text goes sideways.     |
 | `-C <true/false>`, `--color <true/false>` | Whether to enable color output.      |
+| `-s <value>`, `--seed <value>` | Sets the seed of the effect     |
 | `-ch <name/custom>`, `--charset <name/custom>`    | Set character set: ascii / binary / katakana or custom |
 | `-h`, `--help`            | Display the help message.               |
 ## Screenshots
