@@ -36,7 +36,7 @@ bool running = true;
 int delay = DEFAULT_DELAY;
 int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
-bool stopmidway = DEFAULT_STOPMIDWAY, sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
+bool sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
 
 const char* activeCharset = CHARSET_ASCII;
 int charsetLength = 0;
@@ -61,17 +61,21 @@ typedef struct {
     int y;
 } Vector2;
 
+typedef struct {
+    int drop;
+    int trail_length;
+} Column;
+
 // Commands
 IntOption int_options[] = {
     {"-d", "--delay", &delay},
     {"-m", "--mintrail", &mintrail},
     {"-M", "--maxtrail", &maxtrail},
-    {"-sd", "--seed", &seed},
+    {"-s", "--seed", &seed},
     {NULL, NULL, NULL}
 };
 
 BoolOption bool_options[] = {
-    {"-s", "--stopmidway", &stopmidway},
     {"-S", "--sideway", &sideway},
     {"-C", "--color", &color},
     {NULL, NULL, NULL}
@@ -126,7 +130,7 @@ inline int clamp255(int v)
 
 void parseParameters(int argc, char *argv[]) {
     // Parses all parameters given in the command line
-    // Example: cmatrix.exe -delay 100 -textcolor (0,255,0) -stopmidway true -mintrail 5 -maxtrail 10 -sideway false -color true
+    // Example: cmatrix.exe -delay 100 -textcolor (0,255,0) -mintrail 5 -maxtrail 10 -sideway false -color true
 
     for (int i = 1; i < argc; i++) {
         // Int Flags
@@ -169,14 +173,13 @@ void parseParameters(int argc, char *argv[]) {
                 "Options:\n"
                 "  -d, --delay <value>             Set the speed of the animation (ms)\n"
                 "  -c, --textcolor (r,g,b)         Set the text color using RGB values\n"
-                "  -s, --stopmidway true|false     Enable or disable text stopping midway\n"
                 "  -m, --mintrail <value>          Minimum trail length\n"
                 "  -M, --maxtrail <value>          Maximum trail length\n"
                 "  -S, --sideway true|false        Enable or disable sideways movement\n"
                 "  -C, --color true|false          Enable or disable color output\n"
                 "  -h, --help                      Display this help message\n"
                 "  -ch, --charset <name|custom>    Set character set: ascii | binary | katakana | <custom>\n"
-                "  -sd, --seed <value>             Sets the seed of the effect\n"
+                "  -s, --seed <value>              Sets the seed of the effect\n"
                 "Made by AidenDem (https://github.com/AidenDem)\n"
                 "\nCopyright (c) 2025 AidenDem\n"
                 "Licensed under the MIT License\n"
@@ -213,12 +216,15 @@ int main(int argc, char *argv[]) {
     srand(seed);
 
     // Initialize trail positions and lengths for each column
-    int *drops = malloc(consoleSize.x * sizeof(int));
-    int *trail_lengths = malloc(consoleSize.x * sizeof(int));
+    Column *columns = malloc(consoleSize.x * sizeof(Column));
     char *trailChars = malloc(consoleSize.x * consoleSize.y * sizeof(char));
+
+    // Malloc allocation validation
+    if (!columns || !trailChars) exit(1);
+
     for (int i = 0; i < consoleSize.x; i++) {
-        drops[i] = rand() % consoleSize.y;
-        trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail; // Random trail length between mintrail and maxtrail
+        columns[i].drop = rand() % consoleSize.y;
+        columns[i].trail_length = rand() % (maxtrail - mintrail + 1) + mintrail; // Random trail length between mintrail and maxtrail
         for (int j = 0; j < consoleSize.y; j++) {
            TRAIL(i,j) = ' ';
         }
@@ -235,7 +241,7 @@ int main(int argc, char *argv[]) {
     char *frameBuffer = malloc(maxFrameSize);
 
     // Malloc allocation validation
-    if (!drops || !trail_lengths || !trailChars || !frameBuffer) exit(1);
+    if (!frameBuffer) exit(1);
 
     DWORD written;
 
@@ -250,8 +256,8 @@ int main(int argc, char *argv[]) {
             // If sideways, slightly offset the trails resulting in a horizontal effect
             for (int j = sideway ? 1 : 0; j < consoleSize.x; j++) {
                 // Gets current trail
-                int drop = drops[j];
-                int trail_length = trail_lengths[j];
+                int drop = columns[j].drop;
+                int trail_length = columns[j].trail_length;
                 int d = (drop - i + consoleSize.y) % consoleSize.y;
 
                 if (d < trail_length) {
@@ -295,12 +301,7 @@ int main(int argc, char *argv[]) {
 
         // Iterate through columns
         for (int i = 0; i < consoleSize.x; i++) {
-            drops[i] = (drops[i] + 1) % consoleSize.y; // Move trail down by 1 row
-            // If stopmidway is enabled and a random condition is met, reset the trail
-            if (stopmidway && (rand() % 100 > 10)) {
-                drops[i] = rand() % consoleSize.y;
-                trail_lengths[i] = rand() % (maxtrail - mintrail + 1) + mintrail;
-            }
+            columns[i].drop = (columns[i].drop + 1) % consoleSize.y; // Move trail down by 1 row
         }
 
         // Wait before next frame
@@ -309,8 +310,7 @@ int main(int argc, char *argv[]) {
 
     free(frameBuffer);
     free(trailChars);
-    free(drops);
-    free(trail_lengths);
+    free(columns);
 
     return 0;
 }
