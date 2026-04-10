@@ -19,12 +19,12 @@
 #define DEFAULT_SIDEWAY false
 #define DEFAULT_COLOR_ENABLED true
 
+// Byte sizes for ANSI & Chars
 #define ANSI_CELL_SIZE 29
 #define CHAR_CELL_SIZE 1
 
-#define CHARSET_ASCII "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
-#define CHARSET_BINARY "01"
-#define CHARSET_KATAKANA "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"
+// Default Charsets
+#define CHARSET_KATAKANA ""
 
 #define TRAIL(i, j) trailChars[(i) * consoleSize.y + (j)]
 
@@ -38,7 +38,7 @@ int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
 bool sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
 
-const char* activeCharset = CHARSET_ASCII;
+const char* activeCharset;
 int charsetLength = 0;
 
 int seed = -1;
@@ -57,6 +57,11 @@ typedef struct {
 } BoolOption;
 
 typedef struct {
+    const char* set_name;
+    const char* set_values;
+} CharsetOption;
+
+typedef struct {
     int x;
     int y;
 } Vector2;
@@ -67,7 +72,7 @@ typedef struct {
 } Column;
 
 // Commands
-IntOption int_options[] = {
+const IntOption int_options[] = {
     {"-d", "--delay", &delay},
     {"-m", "--mintrail", &mintrail},
     {"-M", "--maxtrail", &maxtrail},
@@ -75,10 +80,18 @@ IntOption int_options[] = {
     {NULL, NULL, NULL}
 };
 
-BoolOption bool_options[] = {
+const BoolOption bool_options[] = {
     {"-S", "--sideway", &sideway},
     {"-C", "--color", &color},
     {NULL, NULL, NULL}
+};
+
+// Default Charsets
+const CharsetOption charset_options[] = {
+    {"ascii","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"},
+    {"binary","01"},
+    {"katakana","ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"},
+    {NULL, NULL}
 };
 
 // Functions
@@ -155,16 +168,18 @@ void parseParameters(int argc, char *argv[]) {
 
         // Other cases
         if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--textcolor") == 0) && i + 1 < argc) {
-            parseColor(argv[i + 1]);
+            parseColor(argv[++i]);
         } else if ((strcmp(argv[i], "--charset") == 0 || strcmp(argv[i], "-ch") == 0) && i + 1 < argc) {
             const char* arg = argv[++i];
-            if (strcmp(arg, "ascii") == 0) {
-                activeCharset = CHARSET_ASCII;
-            } else if (strcmp(arg, "binary") == 0) {
-                activeCharset = CHARSET_BINARY;
-            } else if (strcmp(arg, "katakana") == 0) {
-                activeCharset = CHARSET_KATAKANA;
-            } else {
+            bool found_match = false;
+            for (int j = 0; charset_options[j].set_name != NULL; j++) {
+                if (strcmp(arg, charset_options[j].set_name) == 0) {
+                    activeCharset = charset_options[j].set_values;
+                    found_match = true;
+                    break;
+                }
+            }
+            if (!found_match) {
                 activeCharset = arg;
             }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -193,6 +208,9 @@ void parseParameters(int argc, char *argv[]) {
 
 // Main Program
 int main(int argc, char *argv[]) {
+    // Ensures to set a charset if they didnt pass one in parameters
+    activeCharset = charset_options[0].set_values;
+
     parseParameters(argc, argv); // Parse command-line arguments
     charsetLength = strlen(activeCharset);
 
