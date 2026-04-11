@@ -19,7 +19,7 @@
 #define DEFAULT_SIDEWAY false
 #define DEFAULT_COLOR_ENABLED true
 
-// Byte sizes for ANSI & Chars
+// Byte sizes for ANSI & Chars per Cell
 #define ANSI_CELL_SIZE 29
 #define CHAR_CELL_SIZE 1
 
@@ -129,7 +129,7 @@ void toggleCursor(bool toggle) {
 void handleSigint(int sig) {
     // Handles SIGINT signal
     toggleCursor(true);
-    printf("\033[2J\033[H"); // Cleans up matrix
+    printf("\033[?1049l");
     running = false;
 }
 
@@ -215,6 +215,9 @@ int main(int argc, char *argv[]) {
     charsetLength = strlen(activeCharset);
 
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // Get console handle
+
+    // Switch to alternate buffer
+    printf("\033[?1049h");
 
     // Prepare the console
     system("cls");
