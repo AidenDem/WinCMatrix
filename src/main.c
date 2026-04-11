@@ -217,7 +217,6 @@ int main(int argc, char *argv[]) {
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // Get console handle
 
     // Prepare the console
-    srand(time(NULL));
     system("cls");
     toggleCursor(false);
 
@@ -229,7 +228,7 @@ int main(int argc, char *argv[]) {
 
     // Check if a seed was provided, if not generate random seed
     if (seed == -1) {
-        seed = rand();
+        seed = (int)time(NULL);
     }
     srand(seed);
 
