@@ -23,9 +23,7 @@
 #define ANSI_CELL_SIZE 29
 #define CHAR_CELL_SIZE 1
 
-// Default Charsets
-#define CHARSET_KATAKANA ""
-
+// Macros
 #define TRAIL(i, j) trailChars[(i) * consoleSize.y + (j)]
 
 // Console Handle
