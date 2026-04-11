@@ -180,7 +180,9 @@ void parseParameters(int argc, char *argv[]) {
                 }
             }
             if (!found_match) {
-                activeCharset = arg;
+                if (strlen(arg) > 0) {
+                    activeCharset = arg;
+                }
             }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf(
