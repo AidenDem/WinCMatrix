@@ -1,3 +1,6 @@
+// WinCMatrix@v1.1.2
+// Made by AidenDem
+
 // Libraries
 #include <stdio.h>
 #include <stdlib.h>
@@ -88,6 +91,9 @@ const BoolOption bool_options[] = {
 const CharsetOption charset_options[] = {
     {"ascii","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"},
     {"binary","01"},
+    {"hex","0123456789ABCDEF"},
+    {"number","0123456789"},
+    {"punctuation","!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"},
     {"katakana","ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜｦﾝ"},
     {NULL, NULL}
 };

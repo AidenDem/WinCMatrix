@@ -20,13 +20,15 @@ jobs:
         with:
           name: cmatrix-windows
           path: cmatrix.exe
+      - name: Zip release
+        run: Compress-Archive -Path cmatrix.exe -DestinationPath WinCMatrix.zip
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          name: cmatrix@${{ github.ref_name }}
+          name: wincmatrix@${{ github.ref_name }}
           generate_release_notes: true
-          files: cmatrix.exe
+          files: WinCMatrix.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
