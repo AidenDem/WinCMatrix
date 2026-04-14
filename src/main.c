@@ -1,4 +1,4 @@
-// WinCMatrix@v1.1.2
+// WinCMatrix@v1.2.0
 // Made by AidenDem
 
 // Libraries
@@ -27,7 +27,7 @@
 #define CHAR_CELL_SIZE 1
 
 // Macros
-#define TRAIL(i, j) trailChars[(i) * consoleSize.y + (j)]
+#define TRAIL(i, j) matrix.trailChars[(i) * matrix.consoleSize.y + (j)]
 
 // Console Handle
 HANDLE hConsole = NULL;
@@ -71,6 +71,14 @@ typedef struct {
     int drop;
     int trail_length;
 } Column;
+
+typedef struct {
+    Column *columns;
+    char *trailChars;
+    char *frameBuffer;
+    Vector2 consoleSize;
+    int bufferSize;
+} Matrix;
 
 // Commands
 const IntOption int_options[] = {
@@ -212,6 +220,33 @@ void parseParameters(int argc, char *argv[]) {
     }
 }
 
+void initializeMatrix(Matrix *matrix, int cellSize) {
+    srand(seed); // Ensures it remains consistent
+
+    matrix->consoleSize = getConsoleSize();
+    matrix->bufferSize = matrix->consoleSize.y * matrix->consoleSize.x * cellSize + 2;
+    matrix->columns = malloc(matrix->consoleSize.x * sizeof(Column));
+    matrix->trailChars = malloc(matrix->consoleSize.x * matrix->consoleSize.y * sizeof(char));
+    matrix->frameBuffer = malloc(matrix->bufferSize);
+
+    // Malloc allocation validation
+    if (!matrix->columns || !matrix->trailChars || !matrix->frameBuffer) exit(1);
+
+    for (int i = 0; i < matrix->consoleSize.x; i++) {
+        matrix->columns[i].drop = rand() % matrix->consoleSize.y;
+        matrix->columns[i].trail_length = rand() % (maxtrail - mintrail + 1) + mintrail; // Random trail length between mintrail and maxtrail
+        for (int j = 0; j < matrix->consoleSize.y; j++) {
+           matrix->trailChars[i * matrix->consoleSize.y + j] = ' ';
+        }
+    }
+}
+
+void freeMatrix(Matrix *matrix) {
+    free(matrix->columns);
+    free(matrix->trailChars);
+    free(matrix->frameBuffer);
+}
+
 // Main Program
 int main(int argc, char *argv[]) {
     // Ensures to set a charset if they didnt pass one in parameters
@@ -229,31 +264,12 @@ int main(int argc, char *argv[]) {
     system("cls");
     toggleCursor(false);
 
-    // Get Console Size
-    Vector2 consoleSize = getConsoleSize();
-
     // Handle SIGINT signal, ensures graceful exit
     signal(SIGINT, handleSigint);
 
-    // Check if a seed was provided, if not generate random seed
+    // Check if a seed was provided, if not set seed
     if (seed == -1) {
         seed = (int)time(NULL);
-    }
-    srand(seed);
-
-    // Initialize trail positions and lengths for each column
-    Column *columns = malloc(consoleSize.x * sizeof(Column));
-    char *trailChars = malloc(consoleSize.x * consoleSize.y * sizeof(char));
-
-    // Malloc allocation validation
-    if (!columns || !trailChars) exit(1);
-
-    for (int i = 0; i < consoleSize.x; i++) {
-        columns[i].drop = rand() % consoleSize.y;
-        columns[i].trail_length = rand() % (maxtrail - mintrail + 1) + mintrail; // Random trail length between mintrail and maxtrail
-        for (int j = 0; j < consoleSize.y; j++) {
-           TRAIL(i,j) = ' ';
-        }
     }
 
     // Input Sanitizing
@@ -261,30 +277,36 @@ int main(int argc, char *argv[]) {
     text_g = clamp255(text_g);
     text_b = clamp255(text_b);
 
-    // Frame buffer assignment
-    int maxCellSize = color ? ANSI_CELL_SIZE : CHAR_CELL_SIZE; // Estimated maximum size of a single cell's output (including ANSI codes, cannot be fully accurate due to dynamic user input)
-    int maxFrameSize = consoleSize.y * consoleSize.x * maxCellSize + 2;
-    char *frameBuffer = malloc(maxFrameSize);
+    // Cell Size
+    int cellSize = color ? ANSI_CELL_SIZE : CHAR_CELL_SIZE;
 
-    // Malloc allocation validation
-    if (!frameBuffer) exit(1);
+    // Initialize Matrix
+    Matrix matrix;
+    initializeMatrix(&matrix, cellSize);
 
     DWORD written;
 
     // Main Loop
     while (running) {
+        // Check for matrix resize
+        Vector2 newSize = getConsoleSize();
+        if (newSize.x != matrix.consoleSize.x || newSize.y != matrix.consoleSize.y) {
+            freeMatrix(&matrix);
+            initializeMatrix(&matrix, cellSize);
+        }
+
         // Buffer position
         int pos = 0;
-        pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "\033[H"); // Move cursor to top-left
+        pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[H"); // Move cursor to top-left
 
-        // Double for loop to iterate through consoleSize.y and consoleSize.x
-        for (int i = 0; i < consoleSize.y; i++) {
+        // Double for loop to iterate through matrix.consoleSize.y and matrix.consoleSize.x
+        for (int i = 0; i < matrix.consoleSize.y; i++) {
             // If sideways, slightly offset the trails resulting in a horizontal effect
-            for (int j = sideway ? 1 : 0; j < consoleSize.x; j++) {
+            for (int j = sideway ? 1 : 0; j < matrix.consoleSize.x; j++) {
                 // Gets current trail
-                int drop = columns[j].drop;
-                int trail_length = columns[j].trail_length;
-                int d = (drop - i + consoleSize.y) % consoleSize.y;
+                int drop = matrix.columns[j].drop;
+                int trail_length = matrix.columns[j].trail_length;
+                int d = (drop - i + matrix.consoleSize.y) % matrix.consoleSize.y;
 
                 if (d < trail_length) {
                     // Assigns color based on distance from the top character of the trail
@@ -302,41 +324,40 @@ int main(int argc, char *argv[]) {
                         // Assigns character to buffer
                         // ANSI codes if color enabled
                         if (color) {
-                            pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,i));
+                            pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,i));
                         } else {
-                            frameBuffer[pos++] = TRAIL(j, i);
+                            matrix.frameBuffer[pos++] = TRAIL(j, i);
                         }
                     } else {
                         // Same principle as above
                         // Just a slightly different formula to get the current trail character
                         if (color) {
-                            pos += snprintf(frameBuffer + pos, maxFrameSize - pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,(i - 1 + consoleSize.y) % consoleSize.y));
+                            pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,(i - 1 + matrix.consoleSize.y) % matrix.consoleSize.y));
                         } else {
-                           frameBuffer[pos++] = TRAIL(j,(i - 1 + consoleSize.y) % consoleSize.y);
+                           matrix.frameBuffer[pos++] = TRAIL(j,(i - 1 + matrix.consoleSize.y) % matrix.consoleSize.y);
                         }
                     }
                 } else {
-                    frameBuffer[pos++] = ' ';
+                    matrix.frameBuffer[pos++] = ' ';
                 }
             }
         }
-        frameBuffer[pos] = '\0';
+        matrix.frameBuffer[pos] = '\0';
 
         // Flush the buffer to the console
-        WriteConsoleA(hConsole, frameBuffer, pos, &written, NULL);
+        WriteConsoleA(hConsole, matrix.frameBuffer, pos, &written, NULL);
 
         // Iterate through columns
-        for (int i = 0; i < consoleSize.x; i++) {
-            columns[i].drop = (columns[i].drop + 1) % consoleSize.y; // Move trail down by 1 row
+        for (int i = 0; i < matrix.consoleSize.x; i++) {
+            matrix.columns[i].drop = (matrix.columns[i].drop + 1) % matrix.consoleSize.y; // Move trail down by 1 row
         }
 
         // Wait before next frame
         Sleep(delay);
     }
 
-    free(frameBuffer);
-    free(trailChars);
-    free(columns);
+    // Free allocated memory
+    freeMatrix(&matrix);
 
     return 0;
 }
