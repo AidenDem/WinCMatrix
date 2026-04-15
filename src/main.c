@@ -1,4 +1,4 @@
-// WinCMatrix@v1.2.0
+// WinCMatrix@v1.2.1
 // Made by AidenDem
 
 // Libraries
@@ -209,8 +209,8 @@ void parseParameters(int argc, char *argv[]) {
                 "  -h, --help                      Display this help message\n"
                 "  -ch, --charset <name|custom>    Set character set: ascii | binary | katakana | <custom>\n"
                 "  -s, --seed <value>              Sets the seed of the effect\n"
-                "Made by AidenDem (https://github.com/AidenDem)\n"
-                "\nCopyright (c) 2025 AidenDem\n"
+                "\nMade by AidenDem (https://github.com/AidenDem)\n"
+                "Copyright (c) 2025-2026 AidenDem\n"
                 "Licensed under the MIT License\n"
             );
             exit(0);
@@ -261,7 +261,6 @@ int main(int argc, char *argv[]) {
     printf("\033[?1049h");
 
     // Prepare the console
-    system("cls");
     toggleCursor(false);
 
     // Handle SIGINT signal, ensures graceful exit
@@ -295,6 +294,9 @@ int main(int argc, char *argv[]) {
             initializeMatrix(&matrix, cellSize);
         }
 
+        // Last Color
+        int last_r = -1, last_g = -1, last_b = -1;
+
         // Buffer position
         int pos = 0;
         pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[H"); // Move cursor to top-left
@@ -316,33 +318,29 @@ int main(int argc, char *argv[]) {
                     int g_col = (int)(text_g * factor);
                     int b_col = (int)(text_b * factor);
 
-                    // Top of the trail: generate a new character
+                    // Generate random character if top of trail
                     if (d == 0) {
-                        // Assigns random character
-                        TRAIL(j,i) = randChar();
-
-                        // Assigns character to buffer
-                        // ANSI codes if color enabled
-                        if (color) {
-                            pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[1;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,i));
-                        } else {
-                            matrix.frameBuffer[pos++] = TRAIL(j, i);
-                        }
-                    } else {
-                        // Same principle as above
-                        // Just a slightly different formula to get the current trail character
-                        if (color) {
-                            pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[0;38;2;%d;%d;%dm%c\033[0m", r_col, g_col, b_col, TRAIL(j,(i - 1 + matrix.consoleSize.y) % matrix.consoleSize.y));
-                        } else {
-                           matrix.frameBuffer[pos++] = TRAIL(j,(i - 1 + matrix.consoleSize.y) % matrix.consoleSize.y);
+                        TRAIL(j, i) = randChar();
+                    }
+                    
+                    // Update color if it has been changed
+                    if (color) {
+                        if (r_col != last_r || g_col != last_g || b_col != last_b) {
+                            last_r = r_col;
+                            last_g = g_col;
+                            last_b = b_col;
+                            pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[1;38;2;%d;%d;%dm", r_col, g_col, b_col);
                         }
                     }
+                    
+                    // Write character to buffer
+                    matrix.frameBuffer[pos++] = TRAIL(j, i);
                 } else {
                     matrix.frameBuffer[pos++] = ' ';
                 }
             }
         }
-        matrix.frameBuffer[pos] = '\0';
+        pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[0m\0");
 
         // Flush the buffer to the console
         WriteConsoleA(hConsole, matrix.frameBuffer, pos, &written, NULL);
