@@ -1,4 +1,4 @@
-// WinCMatrix@v1.2.1
+// WinCMatrix@v1.3.0
 // Made by AidenDem
 
 // Libraries
@@ -28,7 +28,7 @@
 #define CHAR_CELL_SIZE 1
 
 // Macros
-#define TRAIL(i, j) matrix.trailChars[(i) * matrix.consoleSize.y + (j)]
+#define CELL(i, j) matrix.trailCells[(i) * matrix.consoleSize.y + (j)]
 
 // Console Handle
 HANDLE hConsole = NULL;
@@ -39,8 +39,6 @@ int delay = DEFAULT_DELAY;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
 bool sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
 
-const char* activeCharset;
-int charsetLength = 0;
 int seed = -1;
 
 // Structs
@@ -78,8 +76,22 @@ typedef struct {
 } Column;
 
 typedef struct {
+    uint8_t bytes[4];
+    uint8_t len;
+} Glyph;
+
+typedef struct {
+    Glyph ch;
+} Cell;
+
+typedef struct {
+    Glyph *glyphs;
+    int count;
+} Charset;
+
+typedef struct {
     Column *columns;
-    char *trailChars;
+    Cell *trailCells;
     char *frameBuffer;
     Vector2 consoleSize;
     int bufferSize;
@@ -111,7 +123,8 @@ const CharsetOption charset_options[] = {
     {NULL, NULL}
 };
 
-// Color assignment
+// Struct assignments
+Charset charset;
 Color matrixColor = {DEFAULT_COLOR_R, DEFAULT_COLOR_G, DEFAULT_COLOR_B};
 
 // Functions
@@ -122,15 +135,24 @@ static inline uint8_t clamp255(int v)
     return (uint8_t)v;
 }
 
+static inline int utf8_len(unsigned char c)
+{
+    if ((c & 0x80) == 0x00) return 1;
+    if ((c & 0xE0) == 0xC0) return 2;
+    if ((c & 0xF0) == 0xE0) return 3;
+    if ((c & 0xF8) == 0xF0) return 4;
+    return 1;
+}
+
 Vector2 getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
     return (Vector2){csbi.srWindow.Right - csbi.srWindow.Left + 1, csbi.srWindow.Bottom - csbi.srWindow.Top + 1};
 }
 
-char randChar() {
+void randChar(Glyph *glyph) {
     // Returns a random printable character out of charset
-    return activeCharset[rand() % charsetLength];
+    *glyph = charset.glyphs[rand() % charset.count];
 }
 
 Color parseColor(const char *arg) {
@@ -144,6 +166,29 @@ Color parseColor(const char *arg) {
     matrixColor.b = clamp255(b);
 
     return matrixColor;
+}
+
+Charset buildCharset(const char *str)
+{
+    Charset cs = {0};
+
+    int len = strlen(str);
+
+    cs.glyphs = malloc(len * sizeof(Glyph));
+    cs.count = 0;
+
+    for (int i = 0; i < len;)
+    {
+        int l = utf8_len((unsigned char)str[i]);
+
+        memcpy(cs.glyphs[cs.count].bytes, &str[i], l);
+        cs.glyphs[cs.count].len = l;
+
+        cs.count++;
+        i += l;
+    }
+
+    return cs;
 }
 
 bool strToBool(const char *str) {
@@ -161,6 +206,7 @@ void toggleCursor(bool toggle) {
     GetConsoleCursorInfo(hConsole, &cursorInfo);
     cursorInfo.bVisible = toggle;
     SetConsoleCursorInfo(hConsole, &cursorInfo);
+    SetConsoleOutputCP(CP_UTF8);
 }
 
 void handleSigint(int sig) {
@@ -203,14 +249,14 @@ void parseParameters(int argc, char *argv[]) {
             bool found_match = false;
             for (int j = 0; charset_options[j].set_name != NULL; j++) {
                 if (strcmp(arg, charset_options[j].set_name) == 0) {
-                    activeCharset = charset_options[j].set_values;
+                    charset = buildCharset(charset_options[j].set_values);
                     found_match = true;
                     break;
                 }
             }
             if (!found_match) {
                 if (strlen(arg) > 0) {
-                    activeCharset = arg;
+                    charset = buildCharset(arg);
                 }
             }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -237,40 +283,40 @@ void parseParameters(int argc, char *argv[]) {
     }
 }
 
-void initializeMatrix(Matrix *matrix, int cellSize) {
+void initializeMatrix(Matrix *matrix) {
     srand(seed); // Ensures it remains consistent
 
     matrix->consoleSize = getConsoleSize();
-    matrix->bufferSize = matrix->consoleSize.y * matrix->consoleSize.x * cellSize + 2;
+    matrix->bufferSize = matrix->consoleSize.y * matrix->consoleSize.x * (sizeof(Cell) + ANSI_CELL_SIZE) + 2;
     matrix->columns = malloc(matrix->consoleSize.x * sizeof(Column));
-    matrix->trailChars = malloc(matrix->consoleSize.x * matrix->consoleSize.y * sizeof(char));
+    matrix->trailCells = malloc(matrix->consoleSize.x * matrix->consoleSize.y * sizeof(Cell));
     matrix->frameBuffer = malloc(matrix->bufferSize);
 
     // Malloc allocation validation
-    if (!matrix->columns || !matrix->trailChars || !matrix->frameBuffer) exit(1);
+    if (!matrix->columns || !matrix->trailCells || !matrix->frameBuffer) exit(1);
 
     for (int i = 0; i < matrix->consoleSize.x; i++) {
         matrix->columns[i].drop = rand() % matrix->consoleSize.y;
         matrix->columns[i].trail_length = rand() % (maxtrail - mintrail + 1) + mintrail; // Random trail length between mintrail and maxtrail
         for (int j = 0; j < matrix->consoleSize.y; j++) {
-           matrix->trailChars[i * matrix->consoleSize.y + j] = ' ';
+           memcpy(matrix->trailCells[i * matrix->consoleSize.y + j].ch.bytes, " ", 1);
+           matrix->trailCells[i * matrix->consoleSize.y + j].ch.len = 1;
         }
     }
 }
 
 void freeMatrix(Matrix *matrix) {
     free(matrix->columns);
-    free(matrix->trailChars);
+    free(matrix->trailCells);
     free(matrix->frameBuffer);
 }
 
 // Main Program
 int main(int argc, char *argv[]) {
     // Ensures to set a charset if they didnt pass one in parameters
-    activeCharset = charset_options[0].set_values;
+    charset = buildCharset(charset_options[0].set_values);
 
     parseParameters(argc, argv); // Parse command-line arguments
-    charsetLength = strlen(activeCharset);
 
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE); // Get console handle
 
@@ -288,12 +334,9 @@ int main(int argc, char *argv[]) {
         seed = (int)time(NULL);
     }
 
-    // Cell Size
-    int cellSize = color ? ANSI_CELL_SIZE : CHAR_CELL_SIZE;
-
     // Initialize Matrix
     Matrix matrix;
-    initializeMatrix(&matrix, cellSize);
+    initializeMatrix(&matrix);
 
     DWORD written;
 
@@ -303,7 +346,7 @@ int main(int argc, char *argv[]) {
         Vector2 newSize = getConsoleSize();
         if (newSize.x != matrix.consoleSize.x || newSize.y != matrix.consoleSize.y) {
             freeMatrix(&matrix);
-            initializeMatrix(&matrix, cellSize);
+            initializeMatrix(&matrix);
         }
 
         // Last Color
@@ -334,7 +377,7 @@ int main(int argc, char *argv[]) {
 
                     // Generate random character if top of trail
                     if (d == 0) {
-                        TRAIL(j, i) = randChar();
+                        randChar(&CELL(j, i).ch);
                     }
                     
                     // Update color if it has been changed
@@ -346,7 +389,8 @@ int main(int argc, char *argv[]) {
                     }
                     
                     // Write character to buffer
-                    matrix.frameBuffer[pos++] = TRAIL(j, i);
+                    memcpy(&matrix.frameBuffer[pos], CELL(j, i).ch.bytes, CELL(j, i).ch.len);
+                    pos += CELL(j, i).ch.len;
                 } else {
                     matrix.frameBuffer[pos++] = ' ';
                 }
@@ -368,6 +412,7 @@ int main(int argc, char *argv[]) {
 
     // Free allocated memory
     freeMatrix(&matrix);
+    free(charset.glyphs);
 
     return 0;
 }
