@@ -4,6 +4,7 @@
 // Libraries
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <windows.h>
 #include <time.h>
@@ -35,13 +36,11 @@ HANDLE hConsole = NULL;
 // Variables
 bool running = true;
 int delay = DEFAULT_DELAY;
-int text_r = DEFAULT_COLOR_R, text_g = DEFAULT_COLOR_G, text_b = DEFAULT_COLOR_B;
 int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
 bool sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
 
 const char* activeCharset;
 int charsetLength = 0;
-
 int seed = -1;
 
 // Structs
@@ -66,6 +65,12 @@ typedef struct {
     int x;
     int y;
 } Vector2;
+
+typedef struct {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+} Color;
 
 typedef struct {
     int drop;
@@ -106,7 +111,17 @@ const CharsetOption charset_options[] = {
     {NULL, NULL}
 };
 
+// Color assignment
+Color matrixColor = {DEFAULT_COLOR_R, DEFAULT_COLOR_G, DEFAULT_COLOR_B};
+
 // Functions
+static inline uint8_t clamp255(int v)
+{
+    if (v < 0) return 0;
+    if (v > 255) return 255;
+    return (uint8_t)v;
+}
+
 Vector2 getConsoleSize() {
     CONSOLE_SCREEN_BUFFER_INFO csbi;
     GetConsoleScreenBufferInfo(hConsole, &csbi);
@@ -118,9 +133,17 @@ char randChar() {
     return activeCharset[rand() % charsetLength];
 }
 
-void parseColor(const char *arg) {
+Color parseColor(const char *arg) {
     // Parses string in format "(r,g,b)" to RGB color values
-    sscanf_s(arg, "(%d,%d,%d)", &text_r, &text_g, &text_b);
+    Color matrixColor = {DEFAULT_COLOR_R, DEFAULT_COLOR_G, DEFAULT_COLOR_B};
+    int r, g, b;
+
+    sscanf_s(arg, "(%d,%d,%d)", &r, &g, &b);
+    matrixColor.r = clamp255(r);
+    matrixColor.g = clamp255(g);
+    matrixColor.b = clamp255(b);
+
+    return matrixColor;
 }
 
 bool strToBool(const char *str) {
@@ -145,12 +168,6 @@ void handleSigint(int sig) {
     toggleCursor(true);
     printf("\033[?1049l");
     running = false;
-}
-
-// Used for sanitizing RGB input
-inline int clamp255(int v)
-{
-    return v < 0 ? 0 : (v > 255 ? 255 : v);
 }
 
 void parseParameters(int argc, char *argv[]) {
@@ -180,7 +197,7 @@ void parseParameters(int argc, char *argv[]) {
 
         // Other cases
         if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--textcolor") == 0) && i + 1 < argc) {
-            parseColor(argv[++i]);
+            matrixColor = parseColor(argv[++i]);
         } else if ((strcmp(argv[i], "--charset") == 0 || strcmp(argv[i], "-ch") == 0) && i + 1 < argc) {
             const char* arg = argv[++i];
             bool found_match = false;
@@ -271,11 +288,6 @@ int main(int argc, char *argv[]) {
         seed = (int)time(NULL);
     }
 
-    // Input Sanitizing
-    text_r = clamp255(text_r);
-    text_g = clamp255(text_g);
-    text_b = clamp255(text_b);
-
     // Cell Size
     int cellSize = color ? ANSI_CELL_SIZE : CHAR_CELL_SIZE;
 
@@ -295,7 +307,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Last Color
-        int last_r = -1, last_g = -1, last_b = -1;
+        Color lastColor = {-1, -1, -1};
 
         // Buffer position
         int pos = 0;
@@ -314,9 +326,11 @@ int main(int argc, char *argv[]) {
                     // Assigns color based on distance from the top character of the trail
                     // The further away, the darker the color
                     double factor = 1.0 - ((double)d / trail_length);
-                    int r_col = (int)(text_r * factor);
-                    int g_col = (int)(text_g * factor);
-                    int b_col = (int)(text_b * factor);
+                    Color currentColor = {
+                        (uint8_t)(matrixColor.r * factor),
+                        (uint8_t)(matrixColor.g * factor),
+                        (uint8_t)(matrixColor.b * factor)
+                    };
 
                     // Generate random character if top of trail
                     if (d == 0) {
@@ -325,11 +339,9 @@ int main(int argc, char *argv[]) {
                     
                     // Update color if it has been changed
                     if (color) {
-                        if (r_col != last_r || g_col != last_g || b_col != last_b) {
-                            last_r = r_col;
-                            last_g = g_col;
-                            last_b = b_col;
-                            pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[1;38;2;%d;%d;%dm", r_col, g_col, b_col);
+                        if (currentColor.r != lastColor.r || currentColor.g != lastColor.g || currentColor.b != lastColor.b) {
+                            lastColor = currentColor;
+                            pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[1;38;2;%d;%d;%dm", currentColor.r, currentColor.g, currentColor.b);
                         }
                     }
                     
