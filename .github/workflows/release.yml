@@ -8,22 +8,33 @@ on:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install MinGW on Windows
-        run: choco install mingw
-      - name: Run Makefile on Windows
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            make
+
+      - name: Build project
+        shell: msys2 {0}
         run: make
-      - name: Upload build artifact from Windows
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: cmatrix-windows
           path: cmatrix.exe
-      - name: Zip release
+
+      - name: Create zip
         run: Compress-Archive -Path cmatrix.exe -DestinationPath WinCMatrix.zip
+
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
