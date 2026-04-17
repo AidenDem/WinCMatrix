@@ -36,23 +36,25 @@ HANDLE hConsole = NULL;
 // Variables
 bool running = true;
 
+// Enums
+typedef enum {
+    CFG_INT,
+    CFG_BOOL,
+    CFG_COLOR,
+    CFG_CHARSET,
+    CFG_STRING,
+    CFG_EMPTY
+} ConfigType;
+
 // Structs
 typedef struct {
-    const char* short_opt;
-    const char* long_opt;
-    int* target;
-} IntOption;
-
-typedef struct {
-    const char* short_opt;
-    const char* long_opt;
-    bool* target;
-} BoolOption;
+    const char *arg;
+} ConfigTypeInfo;
 
 typedef struct {
     const char* set_name;
     const char* set_values;
-} CharsetOption;
+} StringMap;
 
 typedef struct {
     int x;
@@ -93,6 +95,14 @@ typedef struct {
 } Matrix;
 
 typedef struct {
+    const char* short_opt;
+    const char* long_opt;
+    const char* description;
+    ConfigType type;
+    void* ptr;
+} ConfigField;
+
+typedef struct {
     int delay;
     int mintrail;
     int maxtrail;
@@ -115,22 +125,30 @@ Config config = {
     .seed = -1
 };
 
-const IntOption int_options[] = {
-    {"-d", "--delay", &config.delay},
-    {"-m", "--mintrail", &config.mintrail},
-    {"-M", "--maxtrail", &config.maxtrail},
-    {"-s", "--seed", &config.seed},
-    {NULL, NULL, NULL}
+const ConfigField config_fields[] = {
+    {"-d", "--delay", "Set the delay between frames", CFG_INT, &config.delay},
+    {"-m", "--mintrail", "Set the minimum trail length", CFG_INT, &config.mintrail},
+    {"-M", "--maxtrail", "Set the maximum trail length", CFG_INT, &config.maxtrail},
+    {"-S", "--sideway", "Set the sideways mode", CFG_BOOL, &config.sideway},
+    {"-C", "--color", "Set the color mode", CFG_BOOL, &config.color},
+    {"-c", "--textcolor", "Set the text color", CFG_COLOR, &config.matrixColor},
+    {"-s", "--seed", "Set the random seed", CFG_INT, &config.seed},
+    {"-ch", "--charset", "Set the character set", CFG_CHARSET, &config.charset},
+    {"-h", "--help", "Show this help message", CFG_EMPTY, NULL},
+    {NULL, NULL, 0}
 };
 
-const BoolOption bool_options[] = {
-    {"-S", "--sideway", &config.sideway},
-    {"-C", "--color", &config.color},
-    {NULL, NULL, NULL}
+const ConfigTypeInfo config_type_info[] = {
+    [CFG_INT] = {"<integer>"},
+    [CFG_BOOL] = {"<true/false>"},
+    [CFG_COLOR] = {"<(r,g,b)>"},
+    [CFG_CHARSET] = {"<ascii/binary/custom>"},
+    [CFG_STRING] = {"<string>"},
+    [CFG_EMPTY] = {""}
 };
 
 // Default Charsets
-const CharsetOption charset_options[] = {
+const StringMap charset_options[] = {
     {"ascii","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"},
     {"binary","01"},
     {"hex","0123456789ABCDEF"},
@@ -234,65 +252,69 @@ void parseParameters(int argc, char *argv[]) {
     // Example: cmatrix.exe -delay 100 -textcolor (0,255,0) -mintrail 5 -maxtrail 10 -sideway false -color true
 
     for (int i = 1; i < argc; i++) {
-        // Int Flags
-        for (int j = 0; int_options[j].short_opt != NULL; j++) {
-            if ((strcmp(argv[i], int_options[j].short_opt) == 0 || strcmp(argv[i], int_options[j].long_opt) == 0) && i + 1 < argc) {
-                *(int_options[j].target) = atoi(argv[++i]);
+        // Config Fields
+        for (int j = 0; config_fields[j].short_opt != NULL; j++) {
+            if ((strcmp(argv[i], config_fields[j].short_opt) == 0 || strcmp(argv[i], config_fields[j].long_opt) == 0) && i + 1 < argc) {
+                switch (config_fields[j].type) {
+                    case CFG_INT:
+                        *(int*)config_fields[j].ptr = atoi(argv[++i]);
+                        break;
+                    case CFG_BOOL:
+                        *(bool*)config_fields[j].ptr = strToBool(argv[++i]);
+                        break;
+                    case CFG_COLOR:
+                        *(Color*)config_fields[j].ptr = parseColor(argv[++i]);
+                        break;
+                    case CFG_STRING:
+                        *(char**)config_fields[j].ptr = argv[++i];
+                        break;
+                    case CFG_CHARSET:
+                        {
+                            const char* arg = argv[++i];
+                            bool found_match = false;
 
-                // Get out of both loops
-                goto parsed;
+                            Charset *cs_ptr = (Charset*)config_fields[j].ptr;
+
+                            for (int k = 0; charset_options[k].set_name != NULL; k++) {
+                                if (strcmp(arg, charset_options[k].set_name) == 0) {
+                                    free(cs_ptr->glyphs);
+                                    *cs_ptr = buildCharset(charset_options[k].set_values);
+                                    found_match = true;
+                                    break;
+                                }
+                            }
+                            if (!found_match) {
+                                if (strlen(arg) > 0) {
+                                    free(cs_ptr->glyphs);
+                                    *cs_ptr = buildCharset(arg);
+                                }
+                            }
+                        }
+                        break;
+                }
             }
         }
 
-        // Bool Flags
-        for (int j = 0; bool_options[j].short_opt != NULL; j++) {
-            if ((strcmp(argv[i], bool_options[j].short_opt) == 0 || strcmp(argv[i], bool_options[j].long_opt) == 0) && i + 1 < argc) {
-                *(bool_options[j].target) = strToBool(argv[++i]);
+        if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
+            printf("Usage: cmatrix.exe [options]\nOptions:\n");
 
-                // Get out of both loops
-                goto parsed;
+            for (int j = 0; config_fields[j].short_opt != NULL; j++) {
+                printf("  %-3s, %-15s %-20s %s\n",
+                    config_fields[j].short_opt,
+                    config_fields[j].long_opt,
+                    config_type_info[config_fields[j].type].arg,
+                    config_fields[j].description
+                );
             }
-        }
 
-        // Other cases
-        if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--textcolor") == 0) && i + 1 < argc) {
-            config.matrixColor = parseColor(argv[++i]);
-        } else if ((strcmp(argv[i], "--charset") == 0 || strcmp(argv[i], "-ch") == 0) && i + 1 < argc) {
-            const char* arg = argv[++i];
-            bool found_match = false;
-            for (int j = 0; charset_options[j].set_name != NULL; j++) {
-                if (strcmp(arg, charset_options[j].set_name) == 0) {
-                    config.charset = buildCharset(charset_options[j].set_values);
-                    found_match = true;
-                    break;
-                }
-            }
-            if (!found_match) {
-                if (strlen(arg) > 0) {
-                    config.charset = buildCharset(arg);
-                }
-            }
-        } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
             printf(
-                "Usage: cmatrix.exe [options]\n"
-                "Options:\n"
-                "  -d, --delay <value>             Set the speed of the animation (ms)\n"
-                "  -c, --textcolor (r,g,b)         Set the text color using RGB values\n"
-                "  -m, --mintrail <value>          Minimum trail length\n"
-                "  -M, --maxtrail <value>          Maximum trail length\n"
-                "  -S, --sideway true|false        Enable or disable sideways movement\n"
-                "  -C, --color true|false          Enable or disable color output\n"
-                "  -h, --help                      Display this help message\n"
-                "  -ch, --charset <name|custom>    Set character set: ascii | binary | katakana | <custom>\n"
-                "  -s, --seed <value>              Sets the seed of the effect\n"
                 "\nMade by AidenDem (https://github.com/AidenDem)\n"
                 "Copyright (c) 2025-2026 AidenDem\n"
                 "Licensed under the MIT License\n"
             );
+
             exit(0);
         }
-
-        parsed: continue;
     }
 }
 
