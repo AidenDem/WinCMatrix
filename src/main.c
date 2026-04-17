@@ -35,11 +35,6 @@ HANDLE hConsole = NULL;
 
 // Variables
 bool running = true;
-int delay = DEFAULT_DELAY;
-int mintrail = DEFAULT_MINTRAIL, maxtrail = DEFAULT_MAXTRAIL;
-bool sideway = DEFAULT_SIDEWAY, color = DEFAULT_COLOR_ENABLED;
-
-int seed = -1;
 
 // Structs
 typedef struct {
@@ -97,18 +92,38 @@ typedef struct {
     int bufferSize;
 } Matrix;
 
+typedef struct {
+    int delay;
+    int mintrail;
+    int maxtrail;
+    bool sideway;
+    bool color;
+    Color matrixColor;
+    int seed;
+} Config;
+
 // Commands
+Config config = {
+    .delay = DEFAULT_DELAY,
+    .mintrail = DEFAULT_MINTRAIL,
+    .maxtrail = DEFAULT_MAXTRAIL,
+    .sideway = DEFAULT_SIDEWAY,
+    .color = DEFAULT_COLOR_ENABLED,
+    .matrixColor = {DEFAULT_COLOR_R, DEFAULT_COLOR_G, DEFAULT_COLOR_B},
+    .seed = -1
+};
+
 const IntOption int_options[] = {
-    {"-d", "--delay", &delay},
-    {"-m", "--mintrail", &mintrail},
-    {"-M", "--maxtrail", &maxtrail},
-    {"-s", "--seed", &seed},
+    {"-d", "--delay", &config.delay},
+    {"-m", "--mintrail", &config.mintrail},
+    {"-M", "--maxtrail", &config.maxtrail},
+    {"-s", "--seed", &config.seed},
     {NULL, NULL, NULL}
 };
 
 const BoolOption bool_options[] = {
-    {"-S", "--sideway", &sideway},
-    {"-C", "--color", &color},
+    {"-S", "--sideway", &config.sideway},
+    {"-C", "--color", &config.color},
     {NULL, NULL, NULL}
 };
 
@@ -284,7 +299,7 @@ void parseParameters(int argc, char *argv[]) {
 }
 
 void initializeMatrix(Matrix *matrix) {
-    srand(seed); // Ensures it remains consistent
+    srand(config.seed); // Ensures it remains consistent
 
     matrix->consoleSize = getConsoleSize();
     matrix->bufferSize = matrix->consoleSize.y * matrix->consoleSize.x * (sizeof(Cell) + ANSI_CELL_SIZE) + 2;
@@ -297,7 +312,7 @@ void initializeMatrix(Matrix *matrix) {
 
     for (int i = 0; i < matrix->consoleSize.x; i++) {
         matrix->columns[i].drop = rand() % matrix->consoleSize.y;
-        matrix->columns[i].trail_length = rand() % (maxtrail - mintrail + 1) + mintrail; // Random trail length between mintrail and maxtrail
+        matrix->columns[i].trail_length = rand() % (config.maxtrail - config.mintrail + 1) + config.mintrail; // Random trail length between mintrail and maxtrail
         for (int j = 0; j < matrix->consoleSize.y; j++) {
            memcpy(matrix->trailCells[i * matrix->consoleSize.y + j].ch.bytes, " ", 1);
            matrix->trailCells[i * matrix->consoleSize.y + j].ch.len = 1;
@@ -330,8 +345,8 @@ int main(int argc, char *argv[]) {
     signal(SIGINT, handleSigint);
 
     // Check if a seed was provided, if not set seed
-    if (seed == -1) {
-        seed = (int)time(NULL);
+    if (config.seed == -1) {
+        config.seed = (int)time(NULL);
     }
 
     // Initialize Matrix
@@ -359,7 +374,7 @@ int main(int argc, char *argv[]) {
         // Double for loop to iterate through matrix.consoleSize.y and matrix.consoleSize.x
         for (int i = 0; i < matrix.consoleSize.y; i++) {
             // If sideways, slightly offset the trails resulting in a horizontal effect
-            for (int j = sideway ? 1 : 0; j < matrix.consoleSize.x; j++) {
+            for (int j = config.sideway ? 1 : 0; j < matrix.consoleSize.x; j++) {
                 // Gets current trail
                 int drop = matrix.columns[j].drop;
                 int trail_length = matrix.columns[j].trail_length;
@@ -381,7 +396,7 @@ int main(int argc, char *argv[]) {
                     }
                     
                     // Update color if it has been changed
-                    if (color) {
+                    if (config.color) {
                         if (currentColor.r != lastColor.r || currentColor.g != lastColor.g || currentColor.b != lastColor.b) {
                             lastColor = currentColor;
                             pos += snprintf(matrix.frameBuffer + pos, matrix.bufferSize - pos, "\033[1;38;2;%d;%d;%dm", currentColor.r, currentColor.g, currentColor.b);
@@ -407,7 +422,7 @@ int main(int argc, char *argv[]) {
         }
 
         // Wait before next frame
-        Sleep(delay);
+        Sleep(config.delay);
     }
 
     // Free allocated memory
