@@ -1,4 +1,4 @@
-// WinCMatrix@v1.3.0
+// WinCMatrix@v1.4.0
 // Made by AidenDem
 
 // Libraries
@@ -28,29 +28,14 @@
 #define CHAR_CELL_SIZE 1
 
 // Macros
-#define CELL(i, j) matrix.trailCells[(i) * matrix.consoleSize.y + (j)]
-
-// Console Handle
-HANDLE hConsole = NULL;
+#define CELL(m, i, j) (m).trailCells[(i) * (m).consoleSize.y + (j)]
 
 // Variables
+HANDLE hConsole = NULL;
 bool running = true;
 
-// Enums
-typedef enum {
-    CFG_INT,
-    CFG_BOOL,
-    CFG_COLOR,
-    CFG_CHARSET,
-    CFG_STRING,
-    CFG_EMPTY
-} ConfigType;
-
 // Structs
-typedef struct {
-    const char *arg;
-} ConfigTypeInfo;
-
+// Generic Structs
 typedef struct {
     const char* set_name;
     const char* set_values;
@@ -67,6 +52,7 @@ typedef struct {
     uint8_t b;
 } Color;
 
+// Matrix Structs
 typedef struct {
     int drop;
     int trail_length;
@@ -94,11 +80,16 @@ typedef struct {
     int bufferSize;
 } Matrix;
 
+// Config Structs
+typedef struct {
+    const char *arg;
+} ConfigTypeInfo;
+
 typedef struct {
     const char* short_opt;
     const char* long_opt;
     const char* description;
-    ConfigType type;
+    void (*parser)(const char* arg, void* ptr);
     void* ptr;
 } ConfigField;
 
@@ -113,7 +104,14 @@ typedef struct {
     int seed;
 } Config;
 
-// Commands
+// Prototypes
+void parseInt(const char* arg, void* ptr);
+void parseBool(const char* arg, void* ptr);
+void parseColor(const char* arg, void* ptr);
+void parseString(const char* arg, void* ptr);
+void parseCharset(const char* arg, void* ptr);
+
+// Configs
 Config config = {
     .delay = DEFAULT_DELAY,
     .mintrail = DEFAULT_MINTRAIL,
@@ -126,25 +124,16 @@ Config config = {
 };
 
 const ConfigField config_fields[] = {
-    {"-d", "--delay", "Set the delay between frames", CFG_INT, &config.delay},
-    {"-m", "--mintrail", "Set the minimum trail length", CFG_INT, &config.mintrail},
-    {"-M", "--maxtrail", "Set the maximum trail length", CFG_INT, &config.maxtrail},
-    {"-S", "--sideway", "Set the sideways mode", CFG_BOOL, &config.sideway},
-    {"-C", "--color", "Set the color mode", CFG_BOOL, &config.color},
-    {"-c", "--textcolor", "Set the text color", CFG_COLOR, &config.matrixColor},
-    {"-s", "--seed", "Set the random seed", CFG_INT, &config.seed},
-    {"-ch", "--charset", "Set the character set", CFG_CHARSET, &config.charset},
-    {"-h", "--help", "Show this help message", CFG_EMPTY, NULL},
+    {"-d", "--delay", "Set the delay between frames", parseInt, &config.delay},
+    {"-m", "--mintrail", "Set the minimum trail length", parseInt, &config.mintrail},
+    {"-M", "--maxtrail", "Set the maximum trail length", parseInt, &config.maxtrail},
+    {"-S", "--sideway", "Set the sideways mode", parseBool, &config.sideway},
+    {"-C", "--color", "Set the color mode", parseBool, &config.color},
+    {"-c", "--textcolor", "Set the text color", parseColor, &config.matrixColor},
+    {"-s", "--seed", "Set the random seed", parseInt, &config.seed},
+    {"-ch", "--charset", "Set the character set", parseCharset, &config.charset},
+    {"-h", "--help", "Show this help message", NULL, NULL},
     {NULL, NULL, 0}
-};
-
-const ConfigTypeInfo config_type_info[] = {
-    [CFG_INT] = {"<integer>"},
-    [CFG_BOOL] = {"<true/false>"},
-    [CFG_COLOR] = {"<(r,g,b)>"},
-    [CFG_CHARSET] = {"<ascii/binary/custom>"},
-    [CFG_STRING] = {"<string>"},
-    [CFG_EMPTY] = {""}
 };
 
 // Default Charsets
@@ -159,13 +148,6 @@ const StringMap charset_options[] = {
 };
 
 // Functions
-static inline uint8_t clamp255(int v)
-{
-    if (v < 0) return 0;
-    if (v > 255) return 255;
-    return (uint8_t)v;
-}
-
 static inline int utf8_len(unsigned char c)
 {
     if ((c & 0x80) == 0x00) return 1;
@@ -184,19 +166,6 @@ Vector2 getConsoleSize() {
 void randChar(Glyph *glyph) {
     // Returns a random printable character out of charset
     *glyph = config.charset.glyphs[rand() % config.charset.count];
-}
-
-Color parseColor(const char *arg) {
-    // Parses string in format "(r,g,b)" to RGB color values
-    Color matrixColor = {DEFAULT_COLOR_R, DEFAULT_COLOR_G, DEFAULT_COLOR_B};
-    int r, g, b;
-
-    sscanf_s(arg, "(%d,%d,%d)", &r, &g, &b);
-    matrixColor.r = clamp255(r);
-    matrixColor.g = clamp255(g);
-    matrixColor.b = clamp255(b);
-
-    return matrixColor;
 }
 
 Charset buildCharset(const char *str)
@@ -222,13 +191,34 @@ Charset buildCharset(const char *str)
     return cs;
 }
 
-bool strToBool(const char *str) {
-    // Parses string to boolean value
-    if (str == NULL) return false;
-    if (strcmp(str, "true") == 0 || strcmp(str, "1") == 0 || strcmp(str, "yes") == 0 || strcmp(str, "on") == 0) {
-        return true;
+// Parsing functions
+void parseInt(const char* arg, void* ptr) {
+    *(int*)ptr = atoi(arg);
+}
+void parseBool(const char* arg, void* ptr) {
+    if (strcmp(arg, "true") == 0 || strcmp(arg, "1") == 0 || strcmp(arg, "yes") == 0 || strcmp(arg, "on") == 0) {
+        *(bool*)ptr = true;
+    } else {
+        *(bool*)ptr = false;
     }
-    return false;
+}
+void parseColor(const char* arg, void* ptr) {
+    Color *color_ptr = (Color*)ptr;
+    sscanf_s(arg, "(%hhu,%hhu,%hhu)", &color_ptr->r, &color_ptr->g, &color_ptr->b);
+}
+void parseString(const char* arg, void* ptr) {
+    *(char**)ptr = (char*)arg;
+}
+void parseCharset(const char* arg, void* ptr) {
+    Charset *cs_ptr = (Charset*)ptr;
+    free(cs_ptr->glyphs);
+    for (int i = 0; charset_options[i].set_name != NULL; i++) {
+        if (strcmp(arg, charset_options[i].set_name) == 0) {
+            *cs_ptr = buildCharset(charset_options[i].set_values);
+            return;
+        }
+    }
+    *cs_ptr = buildCharset(arg);
 }
 
 void toggleCursor(bool toggle) {
@@ -255,43 +245,7 @@ void parseParameters(int argc, char *argv[]) {
         // Config Fields
         for (int j = 0; config_fields[j].short_opt != NULL; j++) {
             if ((strcmp(argv[i], config_fields[j].short_opt) == 0 || strcmp(argv[i], config_fields[j].long_opt) == 0) && i + 1 < argc) {
-                switch (config_fields[j].type) {
-                    case CFG_INT:
-                        *(int*)config_fields[j].ptr = atoi(argv[++i]);
-                        break;
-                    case CFG_BOOL:
-                        *(bool*)config_fields[j].ptr = strToBool(argv[++i]);
-                        break;
-                    case CFG_COLOR:
-                        *(Color*)config_fields[j].ptr = parseColor(argv[++i]);
-                        break;
-                    case CFG_STRING:
-                        *(char**)config_fields[j].ptr = argv[++i];
-                        break;
-                    case CFG_CHARSET:
-                        {
-                            const char* arg = argv[++i];
-                            bool found_match = false;
-
-                            Charset *cs_ptr = (Charset*)config_fields[j].ptr;
-
-                            for (int k = 0; charset_options[k].set_name != NULL; k++) {
-                                if (strcmp(arg, charset_options[k].set_name) == 0) {
-                                    free(cs_ptr->glyphs);
-                                    *cs_ptr = buildCharset(charset_options[k].set_values);
-                                    found_match = true;
-                                    break;
-                                }
-                            }
-                            if (!found_match) {
-                                if (strlen(arg) > 0) {
-                                    free(cs_ptr->glyphs);
-                                    *cs_ptr = buildCharset(arg);
-                                }
-                            }
-                        }
-                        break;
-                }
+                config_fields[j].parser(argv[++i], config_fields[j].ptr);
             }
         }
 
@@ -302,7 +256,6 @@ void parseParameters(int argc, char *argv[]) {
                 printf("  %-3s, %-15s %-20s %s\n",
                     config_fields[j].short_opt,
                     config_fields[j].long_opt,
-                    config_type_info[config_fields[j].type].arg,
                     config_fields[j].description
                 );
             }
@@ -412,7 +365,7 @@ int main(int argc, char *argv[]) {
 
                     // Generate random character if top of trail
                     if (d == 0) {
-                        randChar(&CELL(j, i).ch);
+                        randChar(&CELL(matrix, j, i).ch);
                     }
                     
                     // Update color if it has been changed
@@ -424,8 +377,8 @@ int main(int argc, char *argv[]) {
                     }
                     
                     // Write character to buffer
-                    memcpy(&matrix.frameBuffer[pos], CELL(j, i).ch.bytes, CELL(j, i).ch.len);
-                    pos += CELL(j, i).ch.len;
+                    memcpy(&matrix.frameBuffer[pos], CELL(matrix, j, i).ch.bytes, CELL(matrix, j, i).ch.len);
+                    pos += CELL(matrix, j, i).ch.len;
                 } else {
                     matrix.frameBuffer[pos++] = ' ';
                 }
