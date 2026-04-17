@@ -99,6 +99,7 @@ typedef struct {
     bool sideway;
     bool color;
     Color matrixColor;
+    Charset charset;
     int seed;
 } Config;
 
@@ -110,6 +111,7 @@ Config config = {
     .sideway = DEFAULT_SIDEWAY,
     .color = DEFAULT_COLOR_ENABLED,
     .matrixColor = {DEFAULT_COLOR_R, DEFAULT_COLOR_G, DEFAULT_COLOR_B},
+    .charset = {0},
     .seed = -1
 };
 
@@ -138,10 +140,6 @@ const CharsetOption charset_options[] = {
     {NULL, NULL}
 };
 
-// Struct assignments
-Charset charset;
-Color matrixColor = {DEFAULT_COLOR_R, DEFAULT_COLOR_G, DEFAULT_COLOR_B};
-
 // Functions
 static inline uint8_t clamp255(int v)
 {
@@ -167,7 +165,7 @@ Vector2 getConsoleSize() {
 
 void randChar(Glyph *glyph) {
     // Returns a random printable character out of charset
-    *glyph = charset.glyphs[rand() % charset.count];
+    *glyph = config.charset.glyphs[rand() % config.charset.count];
 }
 
 Color parseColor(const char *arg) {
@@ -258,20 +256,20 @@ void parseParameters(int argc, char *argv[]) {
 
         // Other cases
         if ((strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--textcolor") == 0) && i + 1 < argc) {
-            matrixColor = parseColor(argv[++i]);
+            config.matrixColor = parseColor(argv[++i]);
         } else if ((strcmp(argv[i], "--charset") == 0 || strcmp(argv[i], "-ch") == 0) && i + 1 < argc) {
             const char* arg = argv[++i];
             bool found_match = false;
             for (int j = 0; charset_options[j].set_name != NULL; j++) {
                 if (strcmp(arg, charset_options[j].set_name) == 0) {
-                    charset = buildCharset(charset_options[j].set_values);
+                    config.charset = buildCharset(charset_options[j].set_values);
                     found_match = true;
                     break;
                 }
             }
             if (!found_match) {
                 if (strlen(arg) > 0) {
-                    charset = buildCharset(arg);
+                    config.charset = buildCharset(arg);
                 }
             }
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
@@ -329,7 +327,7 @@ void freeMatrix(Matrix *matrix) {
 // Main Program
 int main(int argc, char *argv[]) {
     // Ensures to set a charset if they didnt pass one in parameters
-    charset = buildCharset(charset_options[0].set_values);
+    config.charset = buildCharset(charset_options[0].set_values);
 
     parseParameters(argc, argv); // Parse command-line arguments
 
@@ -385,9 +383,9 @@ int main(int argc, char *argv[]) {
                     // The further away, the darker the color
                     double factor = 1.0 - ((double)d / trail_length);
                     Color currentColor = {
-                        (uint8_t)(matrixColor.r * factor),
-                        (uint8_t)(matrixColor.g * factor),
-                        (uint8_t)(matrixColor.b * factor)
+                        (uint8_t)(config.matrixColor.r * factor),
+                        (uint8_t)(config.matrixColor.g * factor),
+                        (uint8_t)(config.matrixColor.b * factor)
                     };
 
                     // Generate random character if top of trail
@@ -427,7 +425,7 @@ int main(int argc, char *argv[]) {
 
     // Free allocated memory
     freeMatrix(&matrix);
-    free(charset.glyphs);
+    free(config.charset.glyphs);
 
     return 0;
 }
